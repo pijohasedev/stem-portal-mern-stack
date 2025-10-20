@@ -13,7 +13,7 @@ const policiesRouter = require('./routes/policies');
 const terasRouter = require('./routes/teras');
 const strategiesRouter = require('./routes/strategies');
 const treeRouter = require('./routes/tree');
-const departmentRoutes = require('./routes/department.js');
+const departmentRoutes = require('./routes/department');
 
 // PENTING: Untuk localhost, dotenv.config() diperlukan untuk membaca .env
 // Di Render, pemboleh ubah persekitaran diinject secara automatik
