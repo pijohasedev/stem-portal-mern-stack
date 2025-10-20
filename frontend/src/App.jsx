@@ -39,7 +39,7 @@ function App() {
   if (loading) {
     return <div className="min-h-screen bg-background" />;
   }
-
+  //ini hanya cubaan
   // Jika belum login → tunjuk login page
   if (!user) {
     return (
