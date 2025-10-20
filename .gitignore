@@ -1,0 +1,11 @@
+# Dependencies
+/node_modules
+
+# Dependencies
+/frontend-v1
+
+# Environment variables (JANGAN MUAT NAIK FAIL INI!)
+.env
+
+# Build output (untuk folder frontend)
+/frontend/dist
