@@ -38,6 +38,7 @@ const PORT = process.env.PORT || 3001;
 
 // Tambahkan URL Frontend Vercel anda di sini!
 const allowedOrigins = [
+  'https://stem-portal.vercel.app',
   'https://stem-portal-mern-stack.vercel.app', // URL Vercel anda
   'http://localhost:5173', // Contoh untuk development tempatan Vite
 ];
