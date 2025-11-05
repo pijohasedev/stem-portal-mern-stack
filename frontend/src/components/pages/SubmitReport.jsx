@@ -218,11 +218,11 @@ function SubmitReport({ reportToEdit, onReportSubmitted }) {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Report Details</CardTitle>
+                    <CardTitle>Perincian Laporan</CardTitle>
                     <CardDescription>
                         {isEditMode
                             ? `Editing report for "${selectedInitiative?.name || 'Loading...'}"`
-                            : 'Select an initiative and fill in your progress update.'}
+                            : 'Pilih satu inisiatif dan isikan laporan kemajuan anda.'}
                     </CardDescription>
                 </CardHeader>
 
@@ -238,7 +238,7 @@ function SubmitReport({ reportToEdit, onReportSubmitted }) {
                                 </div>
                                 <div className="ml-3">
                                     <h3 className="text-sm font-medium text-yellow-800">
-                                        Admin Feedback
+                                        Maklum balas Pentadbir
                                     </h3>
                                     <p className="mt-2 text-sm text-yellow-700">
                                         {adminFeedback}
@@ -251,7 +251,7 @@ function SubmitReport({ reportToEdit, onReportSubmitted }) {
                     <form onSubmit={handleSubmit} className="space-y-6">
                         {/* Initiative Selection */}
                         <div>
-                            <Label>Initiative</Label>
+                            <Label>Inisiatif</Label>
                             {isEditMode ? (
                                 <Input
                                     value={selectedInitiative?.name || 'Loading...'}
@@ -274,16 +274,16 @@ function SubmitReport({ reportToEdit, onReportSubmitted }) {
                             <div className="space-y-6 animate-enter">
                                 {/* KPI Info Display */}
                                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                    <h3 className="font-semibold text-blue-900 mb-2">KPI Information</h3>
+                                    <h3 className="font-semibold text-blue-900 mb-2">Maklumat KPI</h3>
                                     <div className="grid grid-cols-2 gap-4 text-sm">
                                         <div>
-                                            <p className="text-blue-600">Target:</p>
+                                            <p className="text-blue-600">Sasaran:</p>
                                             <p className="font-bold text-blue-900">
                                                 {selectedInitiative.kpi.target} {selectedInitiative.kpi.unit}
                                             </p>
                                         </div>
                                         <div>
-                                            <p className="text-blue-600">Current Progress:</p>
+                                            <p className="text-blue-600">Kemajuan Terkini:</p>
                                             <p className="font-bold text-blue-900">
                                                 {selectedInitiative.kpi.currentValue || 0} {selectedInitiative.kpi.unit}
                                                 <span className="ml-2 text-xs text-blue-600">
@@ -297,7 +297,7 @@ function SubmitReport({ reportToEdit, onReportSubmitted }) {
                                 {/* Period and Current Value */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div>
-                                        <Label htmlFor="period">Reporting Period *</Label>
+                                        <Label htmlFor="period">Tempoh Pelaporan *</Label>
                                         <Select
                                             id="period"
                                             onValueChange={setPeriod}
@@ -308,16 +308,16 @@ function SubmitReport({ reportToEdit, onReportSubmitted }) {
                                                 <SelectValue placeholder="Select a period..." />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="Weekly">Weekly</SelectItem>
-                                                <SelectItem value="Monthly">Monthly</SelectItem>
-                                                <SelectItem value="Quarterly">Quarterly</SelectItem>
+                                                <SelectItem value="Weekly">Mingguan</SelectItem>
+                                                <SelectItem value="Monthly">Bulanan</SelectItem>
+                                                <SelectItem value="Quarterly">Sukuan</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
 
                                     <div>
                                         <Label htmlFor="currentValue">
-                                            New KPI Value ({selectedInitiative.kpi.unit}) *
+                                            Nilai KPI Baharu ({selectedInitiative.kpi.unit}) *
                                         </Label>
                                         <Input
                                             id="currentValue"
@@ -333,37 +333,37 @@ function SubmitReport({ reportToEdit, onReportSubmitted }) {
 
                                 {/* Summary */}
                                 <div>
-                                    <Label htmlFor="summary">Progress Summary *</Label>
+                                    <Label htmlFor="summary">Rumusan Kemajuan *</Label>
                                     <Textarea
                                         id="summary"
                                         value={summary}
                                         onChange={e => setSummary(e.target.value)}
                                         required
-                                        placeholder="Summarize your key achievements for this period."
+                                        placeholder="Rumuskan pencapaian utama anda bagi tempoh ini."
                                         rows={4}
                                     />
                                 </div>
 
                                 {/* Challenges */}
                                 <div>
-                                    <Label htmlFor="challenges">Challenges & Issues</Label>
+                                    <Label htmlFor="challenges">Isu dan Cabaran</Label>
                                     <Textarea
                                         id="challenges"
                                         value={challenges}
                                         onChange={e => setChallenges(e.target.value)}
-                                        placeholder="(Optional) Describe any challenges you faced."
+                                        placeholder="(Opsyenal) Huraikan cabaran yang dihadapi."
                                         rows={3}
                                     />
                                 </div>
 
                                 {/* Next Steps */}
                                 <div>
-                                    <Label htmlFor="nextSteps">Next Steps</Label>
+                                    <Label htmlFor="nextSteps">Langkah Seterusnya</Label>
                                     <Textarea
                                         id="nextSteps"
                                         value={nextSteps}
                                         onChange={e => setNextSteps(e.target.value)}
-                                        placeholder="(Optional) Outline your plan for the next period."
+                                        placeholder="(Opsyenal) Terangkan rancangan anda untuk tempoh akan datang."
                                         rows={3}
                                     />
                                 </div>
@@ -380,7 +380,7 @@ function SubmitReport({ reportToEdit, onReportSubmitted }) {
                                         </Button>
                                     )}
                                     <Button type="submit">
-                                        {isEditMode ? 'Resubmit Report' : 'Submit Report'}
+                                        {isEditMode ? 'Hantar Semula' : 'Hantar Laporan'}
                                     </Button>
                                 </div>
                             </div>

@@ -130,25 +130,25 @@ function AddUserModal({ isOpen, onClose, onUserAdded, userToEdit }) {
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="grid gap-4 py-4">
                     <div className="grid grid-cols-2 gap-4">
-                        <div><Label htmlFor="firstName">First Name</Label><Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} required /></div>
-                        <div><Label htmlFor="lastName">Last Name</Label><Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} required /></div>
+                        <div><Label htmlFor="firstName">Nama Pertama</Label><Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} required /></div>
+                        <div><Label htmlFor="lastName">Nama Akhir</Label><Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} required /></div>
                     </div>
-                    <div><Label htmlFor="email">Email Address</Label><Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
-                    <div><Label htmlFor="password">Password</Label><Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={isEditMode ? "Leave blank to keep current" : "Temporary Password"} required={!isEditMode} /></div>
+                    <div><Label htmlFor="email">Alamat E-mel</Label><Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
+                    <div><Label htmlFor="password">Kata Laluan</Label><Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={isEditMode ? "Leave blank to keep current" : "Temporary Password"} required={!isEditMode} /></div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <Label>Role</Label>
+                            <Label>Peranan</Label>
                             <Select onValueChange={setRole} value={role}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="owner">Initiative Owner</SelectItem>
-                                    <SelectItem value="admin">Administrator</SelectItem>
-                                    <SelectItem value="viewer">Viewer</SelectItem>
+                                    <SelectItem value="owner">Pemilik Inisiatif</SelectItem>
+                                    <SelectItem value="admin">Admin</SelectItem>
+                                    <SelectItem value="viewer">Pemerhati</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
                         <div>
-                            <Label>Department</Label>
+                            <Label>Bahagian</Label>
                             <Select onValueChange={setDepartment} value={department} required>
                                 <SelectTrigger><SelectValue placeholder="Select department..." /></SelectTrigger>
                                 <SelectContent>

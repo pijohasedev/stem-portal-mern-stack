@@ -31,7 +31,7 @@ function EditItemModal({ item, isOpen, onClose, onSave }) {
                 <form onSubmit={handleSubmit}>
                     <div className="grid gap-4 py-4">
                         <Label htmlFor="name" className="text-left">
-                            Name
+                            Nama
                         </Label>
                         <Input
                             id="name"
@@ -41,8 +41,8 @@ function EditItemModal({ item, isOpen, onClose, onSave }) {
                         />
                     </div>
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-                        <Button type="submit">Save Changes</Button>
+                        <Button type="button" variant="outline" onClick={onClose}>Batal</Button>
+                        <Button type="submit">Simpan</Button>
                     </DialogFooter>
                 </form>
             </DialogContent>

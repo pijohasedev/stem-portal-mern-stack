@@ -146,14 +146,14 @@ function ReportHistory() {
         <div>
             <div className="flex justify-between items-center mb-4">
                 <div>
-                    <h1 className="text-3xl font-bold">My Report History</h1>
+                    <h1 className="text-3xl font-bold">Sejarah Laporan</h1>
                     <p className="text-sm text-muted-foreground mt-1">
-                        Total Reports: {reports.length}
+                        Jumlah Laporan: {reports.length}
                     </p>
                 </div>
                 <Button onClick={() => navigate('/submit-report')}>
                     <TrendingUp className="h-4 w-4 mr-2" />
-                    Submit New Report
+                    Hantar Laporan Baharu
                 </Button>
             </div>
 
@@ -238,13 +238,13 @@ function ReportHistory() {
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
-                                                        <TableHead className="w-[200px]">Initiative</TableHead>
-                                                        <TableHead>Period</TableHead>
-                                                        <TableHead>KPI Progress</TableHead>
-                                                        <TableHead>Current / Target</TableHead>
-                                                        <TableHead>Date Submitted</TableHead>
+                                                        <TableHead className="w-[200px]">Inisiatif</TableHead>
+                                                        <TableHead>Tempoh</TableHead>
+                                                        <TableHead>Kemajuan KPI</TableHead>
+                                                        <TableHead>Semasa / Sasaran</TableHead>
+                                                        <TableHead>Tarikh Hantar</TableHead>
                                                         <TableHead>Status</TableHead>
-                                                        <TableHead className="text-right">Actions</TableHead>
+                                                        <TableHead className="text-right">Tindakan</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
@@ -305,7 +305,7 @@ function ReportHistory() {
                                                                             onClick={() => navigate(`/report/${report._id}`)}
                                                                         >
                                                                             <Eye className="h-4 w-4 mr-1" />
-                                                                            View
+                                                                            Lihat
                                                                         </Button>
 
 

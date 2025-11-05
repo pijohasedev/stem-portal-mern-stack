@@ -39,24 +39,24 @@ function PlanInitiativeModal({ initiative, isOpen, onClose, onAccepted }) {
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Accept & Plan Initiative</DialogTitle>
-                    <DialogDescription>Set the start and end dates for "{initiative.name}".</DialogDescription>
+                    <DialogTitle>Terima dan Rancang Inisiatif</DialogTitle>
+                    <DialogDescription>Tentukan tarikh mula dan tamat inisiatif "{initiative.name}".</DialogDescription>
                 </DialogHeader>
                 <form id="plan-initiative-form" onSubmit={handleSubmit} className="grid gap-4 py-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <Label htmlFor="start-date">Start Date</Label>
+                            <Label htmlFor="start-date">Tarikh Mula</Label>
                             <Input id="start-date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
                         </div>
                         <div>
-                            <Label htmlFor="end-date">End Date</Label>
+                            <Label htmlFor="end-date">Tarikh Tamat</Label>
                             <Input id="end-date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required />
                         </div>
                     </div>
                 </form>
                 <DialogFooter>
-                    <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-                    <Button type="submit" form="plan-initiative-form">Accept & Save Plan</Button>
+                    <Button type="button" variant="outline" onClick={onClose}>Batal</Button>
+                    <Button type="submit" form="plan-initiative-form">Terima & Simpan</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

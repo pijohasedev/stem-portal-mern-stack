@@ -103,7 +103,7 @@ function OwnerDashboard() {
 
     return (
         <div>
-            <h1 className="text-3xl font-bold mb-4 text-foreground">My Initiatives</h1>
+            <h1 className="text-3xl font-bold mb-4 text-foreground">Inisiatif</h1>
 
             {initiatives.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -163,7 +163,7 @@ function OwnerDashboard() {
 
                                 <div className="p-4">
                                     <div className="flex justify-between text-sm mb-2">
-                                        <span className="text-muted-foreground">Progress</span>
+                                        <span className="text-muted-foreground">Kemajuan</span>
                                         {/*<span className="font-medium">{kpiProgress}%</span>*/}
                                         <span className="font-medium">{kpiProgress > 100 ? '100+' : kpiProgress}%</span>
                                     </div>
@@ -176,11 +176,11 @@ function OwnerDashboard() {
                                 </div>
                                 <div className="p-4 border-t border-border flex justify-end gap-2">
                                     {initiative.status === 'Pending Acceptance' ? (
-                                        <Button onClick={() => handleOpenPlanModal(initiative)} className="w-full">Accept Initiative</Button>
+                                        <Button onClick={() => handleOpenPlanModal(initiative)} className="w-full">Terima Inisiatif</Button>
                                     ) : (
                                         <>
-                                            <Button variant="outline" onClick={() => handleViewDetails(initiative._id)}>Details</Button>
-                                            <Button onClick={() => handleSubmitReport(initiative._id)}>Submit Report</Button>
+                                            <Button variant="outline" onClick={() => handleViewDetails(initiative._id)}>Lihat</Button>
+                                            <Button onClick={() => handleSubmitReport(initiative._id)}>Hantar Laporan</Button>
                                         </>
                                     )}
                                 </div>

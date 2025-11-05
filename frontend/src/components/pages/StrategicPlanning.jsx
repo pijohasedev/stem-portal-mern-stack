@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ButtonGroup, ButtonGroupSeparator } from "@/components/ui/button-group";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ChevronDownIcon, ChevronRightIcon, PencilSquareIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { ArrowDownTrayIcon, ChevronDownIcon, ChevronRightIcon, PencilSquareIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { useCallback, useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import EditItemModal from './EditItemModal';
@@ -137,27 +137,56 @@ function StrategicPlanning() {
         } catch (error) { Swal.fire('Error!', error.response?.data?.message || 'Failed to update item.', 'error'); }
     };
 
+    const handleDownload = async (policy) => {
+        try {
+            const token = localStorage.getItem('authToken');
+            const response = await fetch(`http://localhost:3001/api/reports/download/${policy._id}`, {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!response.ok) {
+                throw new Error('Network response was not ok.');
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Laporan_${policy.name}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+
+        } catch (error) {
+            console.error('Error downloading report:', error);
+            Swal.fire('Error!', 'Failed to download report.', 'error');
+        }
+    };
+
     const handleItemActions = (e, item, type) => {
         const target = e.target.closest('button');
         if (target?.classList.contains(`delete-${type}-btn`)) {
             e.stopPropagation(); confirmDelete(item._id, item.name, type);
         } else if (target?.classList.contains(`edit-${type}-btn`)) {
             e.stopPropagation(); handleOpenEditModal(item, type);
+        } else if (target?.classList.contains(`download-${type}-btn`)) {
+            e.stopPropagation(); handleDownload(item);
         } else {
             if (type === 'policy') handlePolicySelect(item);
             if (type === 'teras') handleTerasSelect(item);
-            // Strategies are not expandable, so no default action
         }
     };
 
     return (
         <div>
-            <h1 className="text-3xl font-bold mb-4">Strategic Planning</h1>
+            <h1 className="text-3xl font-bold mb-4">Dasar STEM</h1>
             <Card>
-                <CardHeader><CardTitle>Hierarchy Management</CardTitle></CardHeader>
+                <CardHeader><CardTitle>Pengurusan Dasar dan Polisi</CardTitle></CardHeader>
                 <CardContent>
                     <form onSubmit={handleAddPolicy} className="flex gap-2 mb-4 p-4 border rounded-lg">
-                        <Input placeholder="Add a new Policy..." value={newPolicyName} onChange={(e) => setNewPolicyName(e.target.value)} />
+                        <Input placeholder="Tambah Dasar/Polisi..." value={newPolicyName} onChange={(e) => setNewPolicyName(e.target.value)} />
                         <Button type="submit" size="icon" aria-label="Add Policy"><PlusIcon className="h-4 w-4" /></Button>
                     </form>
 
@@ -170,6 +199,8 @@ function StrategicPlanning() {
                                         <span className="font-semibold text-blue-800 dark:text-blue-200">{policy.name}</span>
                                     </div>
                                     <ButtonGroup>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700 download-policy-btn"><ArrowDownTrayIcon className="h-4 w-4" /></Button>
+                                        <ButtonGroupSeparator />
                                         <Button variant="ghost" size="icon" className="h-8 w-8 edit-policy-btn"><PencilSquareIcon className="h-4 w-4" /></Button>
                                         <ButtonGroupSeparator />
                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive delete-policy-btn"><TrashIcon className="h-4 w-4" /></Button>
@@ -179,7 +210,7 @@ function StrategicPlanning() {
                                 {selectedPolicy?._id === policy._id && (
                                     <div className="pl-8 pr-4 pb-4 space-y-2">
                                         <form onSubmit={handleAddTeras} className="flex gap-2 py-2">
-                                            <Input placeholder="Add a new Teras..." value={newTerasName} onChange={(e) => setNewTerasName(e.target.value)} />
+                                            <Input placeholder="Tambah Teras..." value={newTerasName} onChange={(e) => setNewTerasName(e.target.value)} />
                                             <Button type="submit" size="icon" aria-label="Add Teras"><PlusIcon className="h-4 w-4" /></Button>
                                         </form>
                                         {terasItems.map(teras => (
@@ -198,7 +229,7 @@ function StrategicPlanning() {
                                                 {selectedTeras?._id === teras._id && (
                                                     <div className="pl-8 pr-4 pb-4 space-y-2">
                                                         <form onSubmit={handleAddStrategy} className="flex gap-2 py-2">
-                                                            <Input placeholder="Add a new Strategy..." value={newStrategyName} onChange={(e) => setNewStrategyName(e.target.value)} />
+                                                            <Input placeholder="Tambah Strategy..." value={newStrategyName} onChange={(e) => setNewStrategyName(e.target.value)} />
                                                             <Button type="submit" size="icon" aria-label="Add Strategy"><PlusIcon className="h-4 w-4" /></Button>
                                                         </form>
                                                         {strategies.map(strategy => (

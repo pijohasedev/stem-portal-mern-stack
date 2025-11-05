@@ -149,9 +149,9 @@ function ReportMonitor() {
         <div>
             <div className="flex justify-between items-center mb-6">
                 <div>
-                    <h1 className="text-3xl font-bold">Report Monitor (Admin)</h1>
+                    <h1 className="text-3xl font-bold">Pemantauan Pelaporan (Admin)</h1>
                     <p className="text-sm text-muted-foreground">
-                        Total Reports: {reports.length}
+                        Jumlah Laporan: {reports.length}
                     </p>
                 </div>
             </div>
@@ -217,12 +217,12 @@ function ReportMonitor() {
                                                 <table className="min-w-full text-sm">
                                                     <thead>
                                                         <tr className="text-left border-b">
-                                                            <th className="py-2">Period</th>
-                                                            <th>KPI Progress</th>
+                                                            <th className="py-2">Tempoh Laporan</th>
+                                                            <th>Kemajuan KPI</th>
                                                             <th>Status</th>
-                                                            <th>Submitted By</th>
-                                                            <th>Date</th>
-                                                            <th className="text-right">Action</th>
+                                                            <th>Dihantar Oleh</th>
+                                                            <th>Tarikh</th>
+                                                            <th className="text-right">Tindakan</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
@@ -270,7 +270,7 @@ function ReportMonitor() {
                                                                         size="sm"
                                                                         onClick={() => navigate(`/report/${report._id}`, { state: { from: 'report-monitor' } })}
                                                                     >
-                                                                        View
+                                                                        Lihat
                                                                     </Button>
 
                                                                     <DropdownMenu>
@@ -280,7 +280,7 @@ function ReportMonitor() {
                                                                             </Button>
                                                                         </DropdownMenuTrigger>
                                                                         <DropdownMenuContent align="end">
-                                                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                                            <DropdownMenuLabel>Tindakan</DropdownMenuLabel>
                                                                             <DropdownMenuSeparator />
                                                                             <DropdownMenuItem
                                                                                 onClick={() => handleApprove(report._id)}

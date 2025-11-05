@@ -45,7 +45,7 @@ function DashboardOverview() {
     }, [fetchSummary]);
 
     const doughnutData = {
-        labels: ['Planning', 'Active', 'At Risk', 'Completed'],
+        labels: ['Perancangan', 'Aktif', 'Berisiko', 'Selesai'],
         datasets: [
             {
                 data: [12, 19, 3, 5],
@@ -88,17 +88,17 @@ function DashboardOverview() {
                     Dashboard Overview
                 </h1>
                 <p className="text-muted-foreground">
-                    A quick snapshot of your organization's performance and initiative progress.
+                    Gambaran pelaporan pelaksanaan inisiatif pendidikan STEM oleh Kementerian Pendidikan (KPM).
                 </p>
             </div>
 
             {/* Kad Ringkasan */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
-                    { label: "Total Policies", value: stats.policies, color: "blue", icon: <FolderKanban className="h-6 w-6" /> },
-                    { label: "Total Teras", value: stats.teras, color: "green", icon: <Target className="h-6 w-6" /> },
-                    { label: "Total Strategies", value: stats.strategies, color: "yellow", icon: <BarChart3 className="h-6 w-6" /> },
-                    { label: "Total Initiatives", value: stats.initiatives, color: "purple", icon: <TrendingUp className="h-6 w-6" /> },
+                    { label: "Jumlah Dasar/Polisi", value: stats.policies, color: "blue", icon: <FolderKanban className="h-6 w-6" /> },
+                    { label: "Jumlah Teras", value: stats.teras, color: "green", icon: <Target className="h-6 w-6" /> },
+                    { label: "Jumlah Strategi", value: stats.strategies, color: "yellow", icon: <BarChart3 className="h-6 w-6" /> },
+                    { label: "Jumlah Inisiatif", value: stats.initiatives, color: "purple", icon: <TrendingUp className="h-6 w-6" /> },
                 ].map((item, i) => (
                     <motion.div
                         key={i}
@@ -150,8 +150,8 @@ function DashboardOverview() {
                 >
                     <Card className="hover:shadow-md transition-all duration-300">
                         <CardHeader>
-                            <CardTitle>Initiatives by Status</CardTitle>
-                            <CardDescription>Current distribution by phase</CardDescription>
+                            <CardTitle>Status Inisiatif</CardTitle>
+                            <CardDescription>Kedudukan terkini mengikut fasa</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div className="h-[300px]">

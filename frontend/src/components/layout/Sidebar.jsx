@@ -43,16 +43,16 @@ function Sidebar({ isOpen, onLogout, userRole }) {
                 {userRole === 'admin' ? (
                     <>
                         <SidebarLink to="/" icon={ChartBarIcon} isCollapsed={isCollapsed}>Overview</SidebarLink>
-                        <SidebarLink to="/initiatives" icon={ArchiveBoxIcon} isCollapsed={isCollapsed}>All Initiatives</SidebarLink>
-                        <SidebarLink to="/reports" icon={DocumentDuplicateIcon} isCollapsed={isCollapsed}>Reports Monitor</SidebarLink>
-                        <SidebarLink to="/planning" icon={MapIcon} isCollapsed={isCollapsed}>Strategic Planning</SidebarLink>
-                        <SidebarLink to="/users" icon={UserGroupIcon} isCollapsed={isCollapsed}>User Management</SidebarLink>
+                        <SidebarLink to="/initiatives" icon={ArchiveBoxIcon} isCollapsed={isCollapsed}>Senarai Inisiatif</SidebarLink>
+                        <SidebarLink to="/reports" icon={DocumentDuplicateIcon} isCollapsed={isCollapsed}>Pelaporan</SidebarLink>
+                        <SidebarLink to="/planning" icon={MapIcon} isCollapsed={isCollapsed}>Dasar STEM</SidebarLink>
+                        <SidebarLink to="/users" icon={UserGroupIcon} isCollapsed={isCollapsed}>Pengguna</SidebarLink>
                     </>
                 ) : (
                     <>
-                        <SidebarLink to="/" icon={ArchiveBoxIcon} isCollapsed={isCollapsed}>My Initiatives</SidebarLink>
-                        <SidebarLink to="/submit-report" icon={PlusIcon} isCollapsed={isCollapsed}>Submit Report</SidebarLink>
-                        <SidebarLink to="/report-history" icon={DocumentDuplicateIcon} isCollapsed={isCollapsed}>Report History</SidebarLink>
+                        <SidebarLink to="/" icon={ArchiveBoxIcon} isCollapsed={isCollapsed}>Inisiatif</SidebarLink>
+                        <SidebarLink to="/submit-report" icon={PlusIcon} isCollapsed={isCollapsed}>Hantar Laporan</SidebarLink>
+                        <SidebarLink to="/report-history" icon={DocumentDuplicateIcon} isCollapsed={isCollapsed}>Sejarah Laporan</SidebarLink>
                     </>
                 )}
             </nav>
@@ -60,7 +60,7 @@ function Sidebar({ isOpen, onLogout, userRole }) {
             <div className="mt-auto p-4">
                 <button onClick={onLogout} title={isCollapsed ? 'Log Out' : ''} className={cn("flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground hover:text-primary w-full", isCollapsed && "justify-center")}>
                     <PowerIcon className="h-5 w-5 flex-shrink-0" />
-                    <span className={cn("truncate", isCollapsed && "hidden")}>Log Out</span>
+                    <span className={cn("truncate", isCollapsed && "hidden")}>Keluar</span>
                 </button>
             </div>
         </aside>

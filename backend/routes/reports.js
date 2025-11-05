@@ -6,6 +6,8 @@ const adminAuth = require('../middleware/adminAuth');
 const Initiative = require('../models/initiative.model');
 const Strategy = require('../models/strategy.model');
 const Teras = require('../models/teras.model');
+const Policy = require('../models/policy.model');
+const excel = require('exceljs');
 
 // POST /api/reports - Create a new report
 router.post('/', auth, async (req, res) => {
@@ -435,6 +437,103 @@ router.get('/by-initiative/:initiativeId', auth, async (req, res) => {
     } catch (error) {
         console.error('Error fetching latest report:', error);
         res.status(500).json({ message: 'Server error fetching report.' });
+    }
+});
+
+// GET /api/reports/download/:policyId - Menjana dan memuat turun laporan Excel
+router.get('/download/:policyId', [auth, adminAuth], async (req, res) => {
+    try {
+        const policyId = req.params.policyId;
+
+        // 1. Dapatkan semua data hierarki
+        const policy = await Policy.findById(policyId).lean();
+        if (!policy) return res.status(404).json({ message: "Policy not found." });
+
+        const terasItems = await Teras.find({ policy: policyId }).lean();
+        const terasIds = terasItems.map(t => t._id);
+
+        const strategies = await Strategy.find({ teras: { $in: terasIds } }).lean();
+        const strategyIds = strategies.map(s => s._id);
+
+        const initiatives = await Initiative.find({ strategy: { $in: strategyIds } }).lean();
+
+        // 2. Cipta Workbook Excel
+        const workbook = new excel.Workbook();
+        const worksheet = workbook.addWorksheet(policy.name.substring(0, 30)); // Hadkan nama tab
+
+        // 3. Tentukan Kolum
+        worksheet.columns = [
+            { header: 'Polisi', key: 'policy', width: 30 },
+            { header: 'Teras', key: 'teras', width: 30 },
+            { header: 'Strategi', key: 'strategy', width: 30 },
+            { header: 'Inisiatif', key: 'initiative', width: 40 },
+            { header: 'Status', key: 'status', width: 15 },
+            { header: 'KPI Target', key: 'target', width: 15 },
+            { header: 'KPI Current', key: 'current', width: 15 },
+            { header: 'Unit KPI', key: 'unit', width: 15 },
+            { header: 'Tarikh Laporan Terkini', key: 'reportDate', width: 20 },
+            { header: 'Laporan Terkini', key: 'report', width: 50 },
+        ];
+
+        // Jadikan header tebal (bold)
+        worksheet.getRow(1).font = { bold: true };
+
+        // 4. Proses dan tambah data baris demi baris
+        for (const teras of terasItems) {
+            const terasStrategies = strategies.filter(s => s.teras.toString() === teras._id.toString());
+
+            for (const strategy of terasStrategies) {
+                const strategyInitiatives = initiatives.filter(i => i.strategy.toString() === strategy._id.toString());
+
+                if (strategyInitiatives.length === 0) {
+                    // Tambah baris walaupun tiada inisiatif
+                    worksheet.addRow({
+                        policy: policy.name,
+                        teras: teras.name,
+                        strategy: strategy.name,
+                        initiative: "N/A",
+                    });
+                } else {
+                    for (const initiative of strategyInitiatives) {
+                        // Cari laporan terkini untuk inisiatif ini
+                        const latestReport = await Report.findOne({ initiative: initiative._id }).sort({ createdAt: -1 });
+
+                        worksheet.addRow({
+                            policy: policy.name,
+                            teras: teras.name,
+                            strategy: strategy.name,
+                            initiative: initiative.name,
+                            status: initiative.status,
+                            target: initiative.kpi.target,
+                            current: initiative.kpi.currentValue || 0,
+                            unit: initiative.kpi.unit,
+                            reportDate: latestReport ? new Date(latestReport.createdAt).toLocaleDateString() : "N/A",
+                            report: latestReport ? latestReport.summary : "No report submitted."
+                        });
+                    }
+                }
+            }
+        }
+
+        // Tetapkan format tarikh untuk lajur 'reportDate' (Pilihan, tetapi cantik)
+        worksheet.getColumn('reportDate').numFmt = 'dd/mm/yyyy';
+
+        // 5. Hantar fail Excel kepada pengguna
+        res.setHeader(
+            'Content-Type',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        );
+        res.setHeader(
+            'Content-Disposition',
+            `attachment; filename="Laporan_${policy.name}.xlsx"`
+        );
+
+        await workbook.xlsx.write(res);
+        res.end();
+
+    } catch (error) {
+        console.error("Error generating Excel report:", error);
+        res.status(500).json({ message: 'Server error generating report.' });
     }
 });
 

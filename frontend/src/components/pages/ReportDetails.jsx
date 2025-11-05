@@ -79,7 +79,7 @@ function ReportDetails() {
                             </p>
                             {report.feedback && (
                                 <p className="mt-2 text-sm text-red-600 italic">
-                                    Admin Note: {report.feedback}
+                                    Nota Admin: {report.feedback}
                                 </p>
                             )}
                         </div>

@@ -38,16 +38,16 @@ function LoginPage({ onLoginSuccess }) {
             <Card className="w-full max-w-sm">
                 <CardHeader>
                     <CardTitle className="text-2xl">Login</CardTitle>
-                    <CardDescription>Enter your credentials to access the STEM Portal.</CardDescription>
+                    <CardDescription>Masukkan ID dan kata laluan anda untuk log masuk ke STEM Portal.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="grid gap-4">
                         <div className="grid gap-2">
-                            <Label htmlFor="email">Email</Label>
+                            <Label htmlFor="email">E-mel</Label>
                             <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="password">Password</Label>
+                            <Label htmlFor="password">Kata Laluan</Label>
                             <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
                         </div>
                         <Button type="submit" className="w-full" disabled={isLoading}>

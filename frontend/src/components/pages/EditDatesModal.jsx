@@ -57,24 +57,24 @@ function EditDatesModal({ initiative, isOpen, onClose, onDatesUpdated }) {
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Edit Initiative Dates</DialogTitle>
-                    <DialogDescription>Adjust the timeline for "{initiative.name}".</DialogDescription>
+                    <DialogTitle>Edit Tarikh Inisiatif</DialogTitle>
+                    <DialogDescription>Ubah garis masa untuk inisiatif "{initiative.name}".</DialogDescription>
                 </DialogHeader>
                 <form id="edit-dates-form" onSubmit={handleSubmit} className="grid gap-4 py-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <Label htmlFor="start-date-edit">Start Date</Label>
+                            <Label htmlFor="start-date-edit">Tarikh Mula</Label>
                             <Input id="start-date-edit" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
                         </div>
                         <div>
-                            <Label htmlFor="end-date-edit">End Date</Label>
+                            <Label htmlFor="end-date-edit">Tarikh Tamat</Label>
                             <Input id="end-date-edit" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required />
                         </div>
                     </div>
                 </form>
                 <DialogFooter>
-                    <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-                    <Button type="submit" form="edit-dates-form">Save Dates</Button>
+                    <Button type="button" variant="outline" onClick={onClose}>Batal</Button>
+                    <Button type="submit" form="edit-dates-form">Simpan Tarikh</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

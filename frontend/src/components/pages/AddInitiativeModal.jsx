@@ -111,20 +111,20 @@ function AddInitiativeModal({ isOpen, onClose, onInitiativeAdded, initiativeToEd
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-2xl p-0">
                 <DialogHeader className="p-6 pb-4 border-b">
-                    <DialogTitle>{isEditMode ? "Edit Initiative" : "Create New Initiative"}</DialogTitle>
+                    <DialogTitle>{isEditMode ? "Edit Inisiatif" : "Cipta Inisiatif Baharu"}</DialogTitle>
                 </DialogHeader>
 
                 <div className="max-h-[70vh] overflow-y-auto p-6 space-y-4">
                     {!isEditMode && (
                         <div className="space-y-4">
                             <div>
-                                <Label>1. Policy</Label>
+                                <Label>1. Dasar/Polisi</Label>
                                 <Combobox
                                     options={policyOptions}
                                     value={selectedPolicy}
                                     onSelect={handlePolicyChange}
-                                    placeholder="Select Policy..."
-                                    searchPlaceholder="Search policies..."
+                                    placeholder="Pilih Dasar/Polisi..."
+                                    searchPlaceholder="Cari Dasar/Polisi..."
                                 />
                             </div>
                             <div className={!selectedPolicy ? 'hidden' : ''}>
@@ -133,18 +133,18 @@ function AddInitiativeModal({ isOpen, onClose, onInitiativeAdded, initiativeToEd
                                     options={terasOptions}
                                     value={selectedTeras}
                                     onSelect={handleTerasChange}
-                                    placeholder="Select Teras..."
-                                    searchPlaceholder="Search teras..."
+                                    placeholder="Pilih Teras..."
+                                    searchPlaceholder="Cari teras..."
                                 />
                             </div>
                             <div className={!selectedTeras ? 'hidden' : ''}>
-                                <Label>3. Strategy</Label>
+                                <Label>3. Strategi</Label>
                                 <Combobox
                                     options={strategyOptions}
                                     value={selectedStrategy}
                                     onSelect={setSelectedStrategy}
-                                    placeholder="Select Strategy..."
-                                    searchPlaceholder="Search strategies..."
+                                    placeholder="Pilih Strategi..."
+                                    searchPlaceholder="Cari strategi..."
                                 />
                             </div>
                         </div>
@@ -153,15 +153,15 @@ function AddInitiativeModal({ isOpen, onClose, onInitiativeAdded, initiativeToEd
                     {(isEditMode || selectedStrategy) && (
                         <div className={isEditMode ? '' : 'pt-4 border-t'}>
                             <div className="space-y-4">
-                                <div><Label htmlFor="initiativeName">Initiative Name</Label><Input id="initiativeName" value={initiativeName} onChange={e => setInitiativeName(e.target.value)} required /></div>
+                                <div><Label htmlFor="initiativeName">Nama Inisiatif</Label><Input id="initiativeName" value={initiativeName} onChange={e => setInitiativeName(e.target.value)} required /></div>
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div><Label htmlFor="kpiTarget">KPI Target</Label><Input id="kpiTarget" type="number" value={kpiTarget} onChange={e => setKpiTarget(e.target.value)} placeholder="e.g., 85" required /></div>
-                                    <div><Label htmlFor="kpiUnit">KPI Unit</Label><Input id="kpiUnit" value={kpiUnit} onChange={e => setKpiUnit(e.target.value)} placeholder="e.g., % or Projects" required /></div>
+                                    <div><Label htmlFor="kpiTarget">Sasaran KPI</Label><Input id="kpiTarget" type="number" value={kpiTarget} onChange={e => setKpiTarget(e.target.value)} placeholder="cth. 85" required /></div>
+                                    <div><Label htmlFor="kpiUnit">KPI Unit</Label><Input id="kpiUnit" value={kpiUnit} onChange={e => setKpiUnit(e.target.value)} placeholder="cth. %, Projek, Program dll" required /></div>
                                 </div>
                                 <div>
-                                    <Label>Assign To</Label>
+                                    <Label>Ditugaskan kepada</Label>
                                     <Select onValueChange={(value) => setSelectedAssignees([value])} value={selectedAssignees[0] || ''} required>
-                                        <SelectTrigger><SelectValue placeholder="Select an assignee..." /></SelectTrigger>
+                                        <SelectTrigger><SelectValue placeholder="Pilih PIC Bahagian..." /></SelectTrigger>
                                         <SelectContent>{assignees.map(a => <SelectItem key={a._id} value={a._id}>{a.firstName} {a.lastName}</SelectItem>)}</SelectContent>
                                     </Select>
                                 </div>
@@ -171,9 +171,9 @@ function AddInitiativeModal({ isOpen, onClose, onInitiativeAdded, initiativeToEd
                 </div>
 
                 <DialogFooter className="p-6 pt-4 border-t">
-                    <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+                    <Button type="button" variant="outline" onClick={onClose}>Batal</Button>
                     <Button type="button" onClick={handleSubmit} disabled={!isEditMode && !selectedStrategy}>
-                        {isEditMode ? "Save Changes" : "Create Initiative"}
+                        {isEditMode ? "Simpan Perubahan" : "Cipta Inisiatif"}
                     </Button>
                 </DialogFooter>
             </DialogContent>

@@ -170,7 +170,7 @@ function UserManagement() {
     return (
         <div>
             <div className="flex justify-between items-center mb-4">
-                <h1 className="text-3xl font-bold">User Management</h1>
+                <h1 className="text-3xl font-bold">Pengurusan Pengguna</h1>
                 <div className="flex items-center gap-2">
                     {canSuspend && (
                         <Button variant="destructive" onClick={handleBulkSuspend}>
@@ -186,7 +186,7 @@ function UserManagement() {
                     )}
                     <Button onClick={handleOpenAddModal}>
                         <PlusIcon className="h-5 w-5 mr-2" />
-                        Add User
+                        Tambah Pengguna
                     </Button>
                 </div>
             </div>
@@ -208,11 +208,11 @@ function UserManagement() {
                                     aria-label="Select all rows"
                                 />
                             </TableHead>
-                            <TableHead>User</TableHead>
-                            <TableHead>Role</TableHead>
-                            <TableHead>Department</TableHead>
+                            <TableHead>Pengguna</TableHead>
+                            <TableHead>Peranan</TableHead>
+                            <TableHead>Bahagian</TableHead>
                             <TableHead>Status</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
+                            <TableHead className="text-right">Tindakan</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
