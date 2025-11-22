@@ -229,7 +229,7 @@ function StrategicPlanning() {
                                                 {selectedTeras?._id === teras._id && (
                                                     <div className="pl-8 pr-4 pb-4 space-y-2">
                                                         <form onSubmit={handleAddStrategy} className="flex gap-2 py-2">
-                                                            <Input placeholder="Tambah Strategy..." value={newStrategyName} onChange={(e) => setNewStrategyName(e.target.value)} />
+                                                            <Input placeholder="Tambah Strategi..." value={newStrategyName} onChange={(e) => setNewStrategyName(e.target.value)} />
                                                             <Button type="submit" size="icon" aria-label="Add Strategy"><PlusIcon className="h-4 w-4" /></Button>
                                                         </form>
                                                         {strategies.map(strategy => (

@@ -10,6 +10,7 @@ import {
     ArcElement,
     CategoryScale,
     Chart as ChartJS,
+    Filler,
     Legend,
     LinearScale,
     LineElement,
@@ -21,7 +22,7 @@ import { BarChart3, FolderKanban, Target, TrendingUp } from "lucide-react";
 import { useCallback, useEffect, useState } from 'react';
 import { Doughnut, Line } from 'react-chartjs-2';
 
-ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement);
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Filler);
 
 function DashboardOverview() {
     const [stats, setStats] = useState({ policies: 0, teras: 0, strategies: 0, initiatives: 0 });

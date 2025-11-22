@@ -54,7 +54,15 @@ function SubmitReport({ reportToEdit, onReportSubmitted }) {
                 .then(res => {
                     setSelectedInitiative(res.data);
                     // Set current value from initiative
-                    setCurrentValue(res.data.kpi.currentValue || 0);
+                    // ✅ PEMBETULAN: Gunakan snapshot dari laporan jika ada.
+                    // Jika tiada (laporan lama), baru fallback kepada data terkini inisiatif.
+                    if (reportToEdit.kpiSnapshot !== undefined && reportToEdit.kpiSnapshot !== null) {
+                        console.log("Using KPI snapshot for edit:", reportToEdit.kpiSnapshot);
+                        setCurrentValue(reportToEdit.kpiSnapshot);
+                    } else {
+                        console.log("No snapshot found, using live initiative KPI:", res.data.kpi.currentValue);
+                        setCurrentValue(res.data.kpi.currentValue || 0);
+                    }
                 })
                 .catch(error => {
                     console.error('Error fetching initiative:', error);
@@ -277,13 +285,13 @@ function SubmitReport({ reportToEdit, onReportSubmitted }) {
                                     <h3 className="font-semibold text-blue-900 mb-2">Maklumat KPI</h3>
                                     <div className="grid grid-cols-2 gap-4 text-sm">
                                         <div>
-                                            <p className="text-blue-600">Sasaran:</p>
+                                            <p className="text-blue-600">Sasaran/KPI/Outcome:</p>
                                             <p className="font-bold text-blue-900">
                                                 {selectedInitiative.kpi.target} {selectedInitiative.kpi.unit}
                                             </p>
                                         </div>
                                         <div>
-                                            <p className="text-blue-600">Kemajuan Terkini:</p>
+                                            <p className="text-blue-600">Status Terkini:</p>
                                             <p className="font-bold text-blue-900">
                                                 {selectedInitiative.kpi.currentValue || 0} {selectedInitiative.kpi.unit}
                                                 <span className="ml-2 text-xs text-blue-600">
@@ -308,16 +316,17 @@ function SubmitReport({ reportToEdit, onReportSubmitted }) {
                                                 <SelectValue placeholder="Select a period..." />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="Weekly">Mingguan</SelectItem>
-                                                <SelectItem value="Monthly">Bulanan</SelectItem>
-                                                <SelectItem value="Quarterly">Sukuan</SelectItem>
+                                                <SelectItem value="1stQuarter">Sukuan Pertama</SelectItem>
+                                                <SelectItem value="2ndQuarter">Sukuan Kedua</SelectItem>
+                                                <SelectItem value="3rdQuarter">Sukuan Ketiga</SelectItem>
+                                                <SelectItem value="4thQuarter">Sukuan Keempat</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
 
                                     <div>
                                         <Label htmlFor="currentValue">
-                                            Nilai KPI Baharu ({selectedInitiative.kpi.unit}) *
+                                            Status ({selectedInitiative.kpi.unit}) *
                                         </Label>
                                         <Input
                                             id="currentValue"

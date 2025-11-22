@@ -1,8 +1,14 @@
-// In backend/middleware/adminAuth.js
+// backend/middleware/adminAuth.js
+
 module.exports = function (req, res, next) {
-    // This middleware should run AFTER the standard 'auth' middleware
-    if (req.user.role !== 'admin') {
-        return res.status(403).json({ message: 'Access denied. Admin privileges required.' });
+    // req.user kini datang dari middleware 'auth.js' yang telah kita kemas kini
+    // (ia mengambil data terkini dari DB)
+
+    // ✅ PEMBETULAN DI SINI:
+    // Tukar semakan daripada 'admin' (lama) kepada 'Admin' (baharu)
+    if (req.user.role !== 'Admin') {
+        return res.status(403).json({ message: 'Access denied. Not an admin.' });
     }
+
     next();
 };

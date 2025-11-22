@@ -149,7 +149,7 @@ function ReportMonitor() {
         <div>
             <div className="flex justify-between items-center mb-6">
                 <div>
-                    <h1 className="text-3xl font-bold">Pemantauan Pelaporan (Admin)</h1>
+                    <h1 className="text-3xl font-bold">Pemantauan Pelaporan</h1>
                     <p className="text-sm text-muted-foreground">
                         Jumlah Laporan: {reports.length}
                     </p>
@@ -233,13 +233,21 @@ function ReportMonitor() {
                                                             >
                                                                 <td className="py-2">{report.period}</td>
                                                                 <td>
-                                                                    {report.initiative?.kpi
-                                                                        ? `${(
-                                                                            (report.initiative.kpi.currentValue /
-                                                                                report.initiative.kpi.target) *
-                                                                            100
-                                                                        ).toFixed(1)}%`
-                                                                        : "N/A"}
+                                                                    {(() => {
+                                                                        // 1. Tentukan nilai KPI untuk dipaparkan (snapshot atau fallback ke terkini)
+                                                                        const kpiValue = report.kpiSnapshot !== undefined
+                                                                            ? report.kpiSnapshot
+                                                                            : (report.initiative?.kpi?.currentValue || 0);
+
+                                                                        // 2. Dapatkan sasaran
+                                                                        const target = report.initiative?.kpi?.target || 0;
+
+                                                                        // 3. Kira peratusan
+                                                                        if (target > 0) {
+                                                                            return `${((kpiValue / target) * 100).toFixed(1)}%`;
+                                                                        }
+                                                                        return "N/A";
+                                                                    })()}
                                                                 </td>
                                                                 <td>
                                                                     <Badge

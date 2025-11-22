@@ -11,7 +11,7 @@ const adminAuth = require('../middleware/adminAuth');
 // Creates a new user. This is a public route.
 router.post('/register', async (req, res) => {
     try {
-        const { firstName, lastName, email, password, role, department } = req.body;
+        const { firstName, lastName, email, password, role, department, state, ppd } = req.body;
 
         if (!password) {
             return res.status(400).json({ message: 'Password is required.' });
@@ -28,8 +28,10 @@ router.post('/register', async (req, res) => {
             lastName,
             email,
             password: hashedPassword,
-            role,
-            department
+            role: role || 'user',
+            department,
+            state,
+            ppd
         });
 
         await newUser.save();
@@ -74,7 +76,21 @@ router.post('/login', async (req, res) => {
             { expiresIn: '1h' },
             (err, token) => {
                 if (err) throw err;
-                res.json({ token, user: { id: user.id, name: user.firstName, role: user.role } });
+
+                // ✅ PEMBETULAN: Hantar objek user yang lebih lengkap
+                res.json({
+                    token,
+                    user: {
+                        id: user.id,
+                        firstName: user.firstName, // Gunakan nama field yang sebenar
+                        lastName: user.lastName,
+                        email: user.email,
+                        role: user.role,
+                        department: user.department,
+                        state: user.state,
+                        ppd: user.ppd
+                    }
+                });
             }
         );
 
@@ -116,17 +132,45 @@ router.get('/me', auth, async (req, res) => {
 // ✅ NEW ROUTE - GET /api/users/me/initiatives - Get current user's initiatives
 router.get('/me/initiatives', auth, async (req, res) => {
     try {
-        const userId = req.user.id; // From JWT token
+        const userId = req.user.id;
+        const user = req.user; // Kita dapat data penuh dari middleware 'auth.js'
 
-        console.log('=== Fetching initiatives for user ===');
-        console.log('User ID:', userId);
+        console.log(`=== Fetching initiatives for user ${user.email} (Role: ${user.role}) ===`);
 
-        // Find all initiatives where this user is in the assignees array
-        const initiatives = await Initiative.find({
-            assignees: userId
-        })
+        // Bina tapisan (filter) dinamik
+        const filter = {
+            $or: [
+                // 1. Inisiatif ditugaskan terus kepada SAYA
+                { assignees: userId },
+
+                // 2. Inisiatif ditugaskan kepada ROLE saya
+                { assignedRole: user.role },
+
+                // 3. Inisiatif ditugaskan kepada NEGERI saya
+                { assignedState: user.state }, // user.state ialah ID
+
+                // 4. Inisiatif ditugaskan kepada PPD saya
+                { assignedPPD: user.ppd } // user.ppd ialah ID
+            ]
+        };
+
+        // Buang tapisan null (jika pengguna tiada state/ppd)
+        // Cth: Jika 'user.state' ialah null, kita tak mahu cari { assignedState: null }
+        filter.$or = filter.$or.filter(condition => {
+            if (condition.assignees) return true;
+            if (condition.assignedRole && user.role) return true;
+            if (condition.assignedState && user.state) return true;
+            if (condition.assignedPPD && user.ppd) return true;
+            return false;
+        });
+
+        console.log('Mencari inisiatif dengan tapisan:', JSON.stringify(filter, null, 2));
+
+        const initiatives = await Initiative.find(filter)
             .populate('strategy', 'name')
             .populate('assignees', 'firstName lastName email')
+            .populate('assignedState', 'name') // Populate nama untuk paparan
+            .populate('assignedPPD', 'name')   // Populate nama untuk paparan
             .sort({ name: 1 })
             .lean();
 
@@ -147,22 +191,53 @@ router.get('/me/initiatives', auth, async (req, res) => {
 // Gets a list of all users. (Admin Only)
 router.get('/', [auth, adminAuth], async (req, res) => {
     try {
-        const users = await User.find().select('-password');
+        const users = await User.find()
+            .select('-password')
+            .populate('state', 'name') // ✅ TAMBAHAN: Ambil nama Negeri
+            .populate('ppd', 'name')   // ✅ TAMBAHAN: Ambil nama PPD
+            .sort({ createdAt: -1 });  // Susun user paling baru di atas
+
         res.json(users);
     } catch (error) {
+        console.error("Error fetching users:", error);
         res.status(500).json({ message: 'Server error fetching users.' });
     }
 });
 
-// --- GET /api/users/owners ---
-// Gets a list of users with the 'owner' role. (Admin Only)
-// IMPORTANT: This specific route must come BEFORE the general '/:id' route.
-router.get('/owners', [auth, adminAuth], async (req, res) => {
+// --- GET /api/users/assignable --- (Nama route ditukar supaya lebih jelas)
+// Gets a list of users who can be assigned to initiatives. (Admin Only)
+router.get('/assignable', [auth, adminAuth], async (req, res) => {
     try {
-        const owners = await User.find({ role: 'owner' }).select('id firstName lastName');
-        res.json(owners);
+        // Ambil semua pengguna yang BUKAN Super Admin
+        const assignableUsers = await User.find({
+            role: { $ne: 'Admin' }
+        })
+            .populate('state', 'name') // Dapatkan nama Negeri
+            .populate('ppd', 'name')   // Dapatkan nama PPD
+            .select('id firstName lastName role state ppd department')
+            .sort({ role: 1, state: 1, ppd: 1, firstName: 1 }); // Susun ikut hierarki
+
+        // Format nama pengguna supaya lebih informatif di dropdown
+        const formattedUsers = assignableUsers.map(user => {
+            let location = '';
+            if (user.role === 'Negeri' && user.state) {
+                location = `(${user.state.name})`;
+            } else if (user.role === 'PPD' && user.ppd) {
+                location = `(${user.ppd.name})`;
+            } else if (user.role === 'Bahagian' && user.department) {
+                location = `(${user.department})`;
+            }
+
+            return {
+                _id: user._id,
+                // Gabungkan nama dan lokasi
+                displayName: `${user.firstName} ${user.lastName} ${location}`.trim()
+            };
+        });
+
+        res.json(formattedUsers);
     } catch (error) {
-        res.status(500).json({ message: 'Server error fetching owners.' });
+        res.status(500).json({ message: 'Server error fetching assignable users.' });
     }
 });
 
@@ -185,16 +260,20 @@ router.get('/:id', [auth, adminAuth], async (req, res) => {
 // Updates a user by their ID. (Admin Only)
 router.put('/:id', [auth, adminAuth], async (req, res) => {
     try {
-        const { firstName, lastName, email, role, password, department } = req.body;
+        const { firstName, lastName, email, role, password, department, state, ppd, status } = req.body;
 
-        const updatedData = { firstName, lastName, email, role, department };
+        const updatedData = { firstName, lastName, email, role, department, state, ppd, status };
 
         if (password) {
             const salt = await bcrypt.genSalt(10);
             updatedData.password = await bcrypt.hash(password, salt);
         }
 
-        const updatedUser = await User.findByIdAndUpdate(req.params.id, updatedData, { new: true }).select('-password');
+        const updatedUser = await User.findByIdAndUpdate(
+            req.params.id,
+            { $set: updatedData }, // Gunakan $set untuk kemaskini yang lebih selamat
+            { new: true }
+        ).select('-password');
 
         if (!updatedUser) {
             return res.status(404).json({ message: "User not found" });

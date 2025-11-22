@@ -131,8 +131,15 @@ function ReportHistory() {
 
                 Swal.fire("Deleted!", "The report has been removed.", "success");
 
-                // Refresh senarai tanpa reload page
-                setReports(prev => prev.filter(r => r._id !== reportId));
+                // ✅ PEMBETULAN DI SINI:
+                // 1. Buat senarai baharu yang telah ditapis
+                const updatedReports = reports.filter(r => r._id !== reportId);
+
+                // 2. Kemaskini state utama
+                setReports(updatedReports);
+
+                // 3. ✅ PENTING: Kumpul semula (re-group) data untuk paparan UI
+                groupReportsByPolicy(updatedReports);
 
             } catch (error) {
                 console.error("Failed to delete report:", error);
@@ -249,9 +256,15 @@ function ReportHistory() {
                                                 </TableHeader>
                                                 <TableBody>
                                                     {policyGroup.reports.map(report => {
-                                                        const progress = calculateProgress(report);
-                                                        const currentValue = report.initiative?.kpi?.currentValue || 0;
+                                                        // Kira progress berdasarkan snapshot jika ada
+                                                        const kpiValueToShow = report.kpiSnapshot !== undefined
+                                                            ? report.kpiSnapshot
+                                                            : (report.initiative?.kpi?.currentValue || 0);
+
                                                         const target = report.initiative?.kpi?.target || 0;
+
+                                                        // Kira progress semula menggunakan nilai snapshot supaya bar progress juga tepat mengikut sejarah
+                                                        const progress = target > 0 ? Math.min(((kpiValueToShow / target) * 100), 100).toFixed(1) : 0;
                                                         const unit = report.initiative?.kpi?.unit || '';
 
                                                         return (
@@ -280,7 +293,7 @@ function ReportHistory() {
                                                                     </div>
                                                                 </TableCell>
                                                                 <TableCell className="text-sm">
-                                                                    <span className="font-semibold">{currentValue}</span>
+                                                                    <span className="font-semibold">{kpiValueToShow}</span>
                                                                     <span className="text-muted-foreground"> / {target}</span>
                                                                     <span className="text-xs text-muted-foreground ml-1">
                                                                         {unit}
@@ -324,6 +337,7 @@ function ReportHistory() {
                                                                         <Button
                                                                             variant="destructive"
                                                                             size="sm"
+                                                                            disabled={report.status === 'Approved'}
                                                                             onClick={() => handleDeleteReport(report._id)}
                                                                         >
                                                                             <Trash2 className="h-4 w-4 mr-1" />

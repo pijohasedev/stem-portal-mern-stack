@@ -1,26 +1,34 @@
-// In backend/middleware/auth.js
+// backend/middleware/auth.js
 const jwt = require('jsonwebtoken');
+const User = require('../models/user.model'); // 1. Import User Model
 
-const JWT_SECRET = 'your-super-secret-key'; // Use the same secret as in your login route
+// 2. Tukar fungsi ini kepada 'async'
+module.exports = async function (req, res, next) {
+    // Dapatkan token dari header (logik sedia ada anda)
+    const token = req.header('Authorization')?.replace('Bearer ', '');
 
-module.exports = function (req, res, next) {
-    // 1. Get the token from the request header
-    const token = req.header('Authorization');
-
-    // 2. Check if no token is present
     if (!token) {
         return res.status(401).json({ message: 'No token, authorization denied' });
     }
 
-    // 3. Verify the token
     try {
-        // The token is in the format "Bearer <token>", so we split and take the second part
-        const decoded = jwt.verify(token.split(' ')[1], JWT_SECRET);
+        // Sahkan token
+        const decoded = jwt.verify(token, 'your-super-secret-key'); // Pastikan guna secret key anda
 
-        // Add the user payload from the token to the request object
-        req.user = decoded.user;
-        next(); // Move on to the next function (the route handler)
-    } catch (err) {
+        // 3. ✅ PERUBAHAN UTAMA:
+        // Ambil data PENGGUNA PENUH dari Pangkalan Data, bukan dari token
+        // Ini memastikan kita dapat role terkini ('Admin')
+        const user = await User.findById(decoded.user.id).select('-password');
+
+        if (!user) {
+            return res.status(401).json({ message: 'User not found, authorization denied' });
+        }
+
+        // 4. Lampirkan OBJEK PENGGUNA PENUH pada 'req'
+        req.user = user;
+
+        next();
+    } catch (e) {
         res.status(401).json({ message: 'Token is not valid' });
     }
 };

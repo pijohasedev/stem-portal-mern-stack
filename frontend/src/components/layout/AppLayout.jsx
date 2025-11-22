@@ -1,31 +1,47 @@
-import Sidebar from '@/components/layout/Sidebar';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { Button } from "@/components/ui/button";
-import { Bars3Icon } from '@heroicons/react/24/outline';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import Navbar from './Navbar';
+import Sidebar from './Sidebar';
 
-function AppLayout({ children, onLogout, userRole }) {
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+// 1. Perhatikan bahagian dalam kurungan ini ({ ... })
+// Pastikan perkataan 'user' ada disenaraikan di sini!
+const AppLayout = ({ children, onLogout, userRole, user }) => {
+
+    const [sidebarOpen, setSidebarOpen] = useState(true);
+
+    // Debugging: Mari lihat adakah AppLayout menerima data
+    useEffect(() => {
+        console.log("AppLayout menerima user:", user);
+    }, [user]);
 
     return (
-        <div className="flex min-h-screen w-full bg-background">
-            <Sidebar isOpen={isSidebarOpen} onLogout={onLogout} userRole={userRole} />
+        <div className="flex h-screen bg-slate-50 dark:bg-slate-900 overflow-hidden">
 
-            <div className="flex flex-col flex-1">
-                <header className="flex h-14 items-center gap-4 border-b border-border bg-card px-4">
-                    <Button variant="ghost" className="text-muted-foreground" size="icon" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
-                        <Bars3Icon className="h-6 w-6" />
-                        <span className="sr-only">Toggle Sidebar</span>
-                    </Button>
-                    <div className="flex-1"></div>
-                    <ThemeToggle />
-                </header>
-                <main className="flex-1 p-4 md:p-6">
-                    {children}
+            {/* Sidebar */}
+            <Sidebar
+                isOpen={sidebarOpen}
+                onLogout={onLogout}
+                userRole={userRole}
+                user={user} // Hantar ke Sidebar (untuk footer)
+            />
+
+            {/* Main Content Area */}
+            <div className="flex-1 flex flex-col overflow-hidden transition-all duration-300">
+
+                {/* ✅ 2. HANTAR KE NAVBAR DISINI */}
+                <Navbar
+                    onMenuClick={() => setSidebarOpen(!sidebarOpen)}
+                    user={user} // <--- INI YANG PENTING
+                />
+
+                {/* Content Page */}
+                <main className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
+                    <div className="mx-auto max-w-7xl">
+                        {children}
+                    </div>
                 </main>
             </div>
         </div>
     );
-}
+};
 
 export default AppLayout;

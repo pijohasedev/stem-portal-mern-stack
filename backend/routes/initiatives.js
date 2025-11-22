@@ -4,6 +4,44 @@ const Initiative = require('../models/initiative.model');
 const Report = require('../models/report.model');
 const auth = require('../middleware/auth');
 const adminAuth = require('../middleware/adminAuth');
+const Strategy = require('../models/strategy.model');
+const User = require('../models/user.model');
+
+// ✅ FUNGSI HELPER BARU: Untuk mengira status berdasarkan tarikh
+function getStatusByDate(startDateStr, endDateStr, currentStatus) {
+    // Jika status sedia ada 'Completed', jangan ubah apa-apa.
+    if (currentStatus === 'Completed') {
+        return 'Completed';
+    }
+
+    // Pastikan kita ada tarikh yang sah
+    if (!startDateStr || !endDateStr) {
+        return 'Active'; // Default jika tarikh tiada, anggap 'Active'
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Normalisasi 'hari ini' ke permulaan hari (tengah malam)
+
+    const startDate = new Date(startDateStr);
+    const endDate = new Date(endDateStr);
+
+    // Normalisasi tarikh input
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999); // Set ke PENGHUJUNG hari
+
+    if (today > endDate) {
+        return 'At Risk'; // Melebihi tarikh tamat
+    }
+    if (today >= startDate && today <= endDate) {
+        return 'Active'; // Dalam tempoh pelaksanaan
+    }
+    if (today < startDate) {
+        return 'Planning'; // Belum mula
+    }
+
+    return 'Planning'; // Default jika tiada syarat sepadan
+}
+
 
 // GET /api/initiatives - Gets a list of initiatives with automatic status updates
 // GET all initiatives (with role-based filtering)
@@ -59,20 +97,51 @@ router.get('/', auth, async (req, res) => {
 
 // --- POST /api/initiatives ---
 // Creates a new initiative (Admin Only)
+// POST /api/initiatives - Cipta inisiatif baharu (Admin sahaja)
 router.post('/', [auth, adminAuth], async (req, res) => {
     try {
-        const { name, strategy, kpi, assignees } = req.body;
+        // 1. Ambil SEMUA medan tugasan dari req.body
+        const {
+            name, strategy, kpi, assignees,
+            assignedRole, assignedState, assignedPPD
+        } = req.body;
 
-        if (!name || !strategy || !kpi || !assignees) {
-            return res.status(400).json({ message: 'All initiative fields are required.' });
+        // 2. Kemas kini validasi asas
+        if (!name || !strategy || !kpi) {
+            return res.status(400).json({ message: 'Medan Nama, Strategi, dan KPI diperlukan.' });
+        }
+
+        // 3. Validasi bahawa sekurang-kurangnya SATU jenis tugasan ada
+        // (Borang frontend sepatutnya sudah menguruskan ini, tetapi baik untuk ada semakan di backend)
+        const hasIndividualAssignee = assignees && assignees.length > 0;
+        const hasGroupAssignment = assignedRole || assignedState || assignedPPD;
+
+        if (!hasIndividualAssignee && !hasGroupAssignment) {
+            return res.status(400).json({ message: 'Inisiatif mesti ditugaskan kepada individu atau kumpulan.' });
+        }
+
+        // 4. Cipta Inisiatif Baharu dengan semua medan
+        // (Kita juga akan tambah 'policy' yang diambil secara automatik dari 'strategy')
+        const strategyDoc = await Strategy.findById(strategy).populate({
+            path: 'teras',
+            select: 'policy'
+        });
+
+        if (!strategyDoc || !strategyDoc.teras?.policy) {
+            return res.status(400).json({ message: 'Strategi tidak sah atau tiada pautan ke Polisi.' });
         }
 
         const newInitiative = new Initiative({
             name,
             strategy,
+            policy: strategyDoc.teras.policy, // ✅ Auto-tambah 'policy'
             kpi,
-            assignees
-            // Status defaults to 'Pending Acceptance' automatically
+            // Data Tugasan: Simpan semua (frontend akan hantar array kosong atau null)
+            assignees: hasGroupAssignment ? [] : (assignees || []), // Kosongkan individu jika tugasan kumpulan
+            assignedRole: assignedRole || null,
+            assignedState: assignedState || null,
+            assignedPPD: assignedPPD || null
+            // Status akan default kepada 'Pending Acceptance' dari model
         });
 
         await newInitiative.save();
@@ -83,6 +152,7 @@ router.post('/', [auth, adminAuth], async (req, res) => {
             const message = Object.values(err.errors).map(val => val.message).join(', ');
             return res.status(400).json({ message });
         }
+        console.error('Server error creating initiative:', err); // Log ralat
         res.status(500).json({ message: 'Server error creating initiative.' });
     }
 });
@@ -133,33 +203,51 @@ router.put('/:id', [auth, adminAuth], async (req, res) => {
 });
 
 // --- PATCH /api/initiatives/:id/accept ---
-// Allows an owner to accept an initiative
+// ✅ PATCH /api/initiatives/:id/accept - Terima inisiatif (DIKEMASKINI)
 router.patch('/:id/accept', auth, async (req, res) => {
     try {
+        // 1. Dapatkan tarikh dari frontend (PlanInitiativeModal)
         const { startDate, endDate } = req.body;
+
+        if (!startDate || !endDate) {
+            return res.status(400).json({ message: 'Tarikh Mula dan Tarikh Tamat diperlukan.' });
+        }
+
         const initiative = await Initiative.findById(req.params.id);
-
         if (!initiative) {
-            return res.status(404).json({ message: 'Initiative not found.' });
+            return res.status(404).json({ message: 'Inisiatif tidak ditemui.' });
         }
 
-        // --- THIS IS THE FIX ---
-        // We now check if the user's ID is included in the 'assignees' array.
-        const isAssigned = initiative.assignees.some(assigneeId => assigneeId.toString() === req.user.id);
-        if (!isAssigned) {
-            return res.status(403).json({ message: 'User not authorized to update this initiative.' });
-        }
-        // ------------------------
+        // 2. Logik Kebenaran (Authorization - kekal sama)
+        const user = req.user;
+        const userId = user._id;
 
-        initiative.status = 'Planning';
+        const isAssignedIndividually = initiative.assignees.some(id => id.equals(userId));
+        const isAssignedToRole = initiative.assignedRole === user.role;
+        const isAssignedToState = user.state && initiative.assignedState && initiative.assignedState.equals(user.state);
+        const isAssignedToPPD = user.ppd && initiative.assignedPPD && initiative.assignedPPD.equals(user.ppd);
+
+        if (!isAssignedIndividually && !isAssignedToRole && !isAssignedToState && !isAssignedToPPD) {
+            return res.status(403).json({ message: 'Anda tidak ditugaskan untuk inisiatif ini.' });
+        }
+        // --- Tamat Semakan Kebenaran ---
+
+        // 3. ✅ LOGIK STATUS BAHARU: Guna fungsi helper
+        const newStatus = getStatusByDate(startDate, endDate, initiative.status);
+
+        initiative.status = newStatus;
         initiative.startDate = startDate;
         initiative.endDate = endDate;
 
         await initiative.save();
-        res.json({ message: 'Initiative accepted and is now in planning.', data: initiative });
+        res.json({ message: 'Inisiatif diterima dan dirancang.', initiative });
+
     } catch (error) {
         console.error('Error accepting initiative:', error);
-        res.status(500).json({ message: 'Server error while accepting initiative.' });
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ message: error.message });
+        }
+        res.status(500).json({ message: 'Server error' });
     }
 });
 

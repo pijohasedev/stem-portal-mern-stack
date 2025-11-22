@@ -2,7 +2,7 @@ import api from '@/api';
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, CalendarIcon } from "lucide-react"; // ✅ Tambah CalendarIcon
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 
@@ -11,8 +11,6 @@ function ReportDetails() {
     const [loading, setLoading] = useState(true);
     const { id } = useParams();
     const location = useLocation();
-    const fromOwner = location.state?.from === 'owner-dashboard';
-
     const from = location.state?.from || 'report-history';
 
     useEffect(() => {
@@ -87,7 +85,6 @@ function ReportDetails() {
                 </div>
             )}
 
-
             {/* Report Card */}
             <Card>
                 <CardHeader>
@@ -112,6 +109,39 @@ function ReportDetails() {
                 </CardHeader>
 
                 <CardContent className="space-y-6">
+
+                    {/* ✅ TAMBAHAN: Tarikh Mula & Tamat Inisiatif */}
+                    <div className="grid grid-cols-2 gap-4 border-b pb-4 mb-4">
+                        <div>
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tarikh Mula</p>
+                            <div className="flex items-center gap-2 mt-1">
+                                <CalendarIcon className="h-4 w-4 text-blue-500" />
+                                <span className="font-semibold text-sm text-slate-900 dark:text-slate-100">
+                                    {report.initiative?.startDate
+                                        ? new Date(report.initiative.startDate).toLocaleDateString('ms-MY', {
+                                            day: '2-digit', month: 'long', year: 'numeric'
+                                        })
+                                        : 'Belum ditetapkan'}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tarikh Tamat</p>
+                            <div className="flex items-center gap-2 mt-1">
+                                <CalendarIcon className="h-4 w-4 text-red-500" />
+                                <span className="font-semibold text-sm text-slate-900 dark:text-slate-100">
+                                    {report.initiative?.endDate
+                                        ? new Date(report.initiative.endDate).toLocaleDateString('ms-MY', {
+                                            day: '2-digit', month: 'long', year: 'numeric'
+                                        })
+                                        : 'Belum ditetapkan'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    {/* --------------------------------------------- */}
+
                     {/* KPI Progress */}
                     <div>
                         <h3 className="font-semibold mb-2">KPI Progress</h3>

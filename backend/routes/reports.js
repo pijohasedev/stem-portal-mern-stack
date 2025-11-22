@@ -8,64 +8,75 @@ const Strategy = require('../models/strategy.model');
 const Teras = require('../models/teras.model');
 const Policy = require('../models/policy.model');
 const excel = require('exceljs');
+const User = require('../models/user.model');
 
 // POST /api/reports - Create a new report
+// POST /api/reports - Cipta laporan baharu
 router.post('/', auth, async (req, res) => {
     try {
         const { initiativeId, period, summary, challenges, nextSteps, currentValue } = req.body;
+        const userId = req.user._id || req.user.id;
+        const user = req.user; // Data pengguna dari middleware auth.js (tidak dipopulate)
 
-        console.log('=== Creating Report ===');
-        console.log('Request body:', req.body);
-        console.log('User:', req.user);
-
-        // Validation
-        if (!initiativeId || !period || !summary || currentValue === undefined) {
-            return res.status(400).json({
-                message: 'Missing required fields: initiativeId, period, summary, and currentValue are required'
-            });
-        }
-
-        // Find initiative
+        // 1. Dapatkan Inisiatif
         const initiative = await Initiative.findById(initiativeId);
         if (!initiative) {
-            console.error('Initiative not found for ID:', initiativeId);
             return res.status(404).json({ message: 'Initiative not found.' });
         }
 
-        console.log('Found initiative:', initiative.name);
-        console.log('Old KPI value:', initiative.kpi.currentValue);
-        console.log('New KPI value:', currentValue);
+        // 2. ✅ LOGIK KEBENARAN (AUTHORIZATION) YANG DIPERBAIKI
+        // Semak jika pengguna dibenarkan untuk hantar laporan bagi inisiatif ini
 
-        // Check if user is assigned to this initiative
-        const userId = req.user._id || req.user.id;
-        const isAssigned = initiative.assignees.some(
-            assignee => assignee.toString() === userId.toString()
-        );
+        // Semakan 1: Ditugaskan secara individu
+        const isAssignedIndividually = initiative.assignees.some(id => id.equals(userId));
 
-        if (!isAssigned && req.user.role !== 'Admin') {
-            return res.status(403).json({
-                message: 'You are not assigned to this initiative.'
-            });
+        // Semakan 2: Ditugaskan kepada Role (cth: 'PPD' dan role pengguna 'PPD')
+        const isAssignedToRole = initiative.assignedRole === user.role;
+
+        // Semakan 3: Ditugaskan kepada PPD spesifik (cth: PPD Batu Pahat)
+        const isAssignedToPPD = user.ppd && initiative.assignedPPD && initiative.assignedPPD.equals(user.ppd);
+
+        // Semakan 4: Ditugaskan kepada Negeri (JPN)
+        // Ini benar jika:
+        //    a) Inisiatif ditugaskan kepada Negeri pengguna
+        //    b) DAN role pengguna ialah 'Negeri' ATAU 'PPD' (PPD boleh lapor untuk Negeri)
+        const isAssignedToState = user.state && initiative.assignedState &&
+            initiative.assignedState.equals(user.state) &&
+            (user.role === 'Negeri' || user.role === 'PPD');
+
+        // Jika BUKAN Admin DAN GAGAL semua semakan di atas, sekat.
+        if (user.role !== 'Admin' && !isAssignedIndividually && !isAssignedToRole && !isAssignedToState && !isAssignedToPPD) {
+            return res.status(403).json({ message: 'Anda tidak ditugaskan (atau tidak mempunyai kebenaran) untuk inisiatif ini.' });
+        }
+        // --- TAMAT SEMAKAN KEBENARAN ---
+
+        // 3. Teruskan dengan logik sedia ada (Update Initiative)
+        if (currentValue === undefined) {
+            return res.status(400).json({ message: 'Nilai KPI (currentValue) diperlukan.' });
         }
 
-        // Calculate completion rate
+        const newKpiValue = parseFloat(currentValue);
+        initiative.kpi.currentValue = newKpiValue;
+        initiative.lastReportDate = new Date();
+
+        if (initiative.kpi.target > 0) {
+            if (newKpiValue >= initiative.kpi.target) {
+                initiative.status = 'Completed';
+            } else if (initiative.status === 'Completed' && newKpiValue < initiative.kpi.target) {
+                initiative.status = 'Active'; // Kembalikan ke Active jika nilai dikurangkan
+            }
+        }
+        await initiative.save();
+        console.log('✓ Initiative KPI updated successfully');
+
+        // 4. Dapatkan data pengguna (dengan populate) untuk "Stamping"
+        const currentUser = await User.findById(userId).populate('state', 'name').populate('ppd', 'name');
+
         const completionRate = initiative.kpi.target > 0
-            ? (parseFloat(currentValue) / initiative.kpi.target) * 100
+            ? (newKpiValue / initiative.kpi.target) * 100
             : 0;
 
-        // Update initiative KPI
-        initiative.kpi.currentValue = parseFloat(currentValue);
-
-        if (initiative.kpi.currentValue >= initiative.kpi.target) {
-            initiative.status = 'Completed';
-            console.log('✓ Initiative marked as Completed');
-        }
-
-        initiative.lastReportDate = new Date();
-        await initiative.save();
-        console.log('✓ Initiative updated successfully');
-
-        // Create report
+        // 5. Cipta Laporan Baharu (dengan Stamping yang betul)
         const newReport = new Report({
             initiative: initiativeId,
             owner: userId,
@@ -74,37 +85,108 @@ router.post('/', auth, async (req, res) => {
             challenges: challenges || '',
             nextSteps: nextSteps || '',
             reportDate: new Date(),
-            participants: 0,
-            attendanceRate: 0,
+
+            kpiSnapshot: newKpiValue,
             completionRate: completionRate,
-            status: 'Pending Review'
+            status: 'Pending Review',
+
+            // Stamping NAMA (bukan ID)
+            submittedTier: currentUser.role,
+            submittedDepartment: currentUser.department,
+            submittedState: currentUser.state ? currentUser.state.name : null,
+            submittedPPD: currentUser.ppd ? currentUser.ppd.name : null
         });
 
         await newReport.save();
-        console.log('✓ Report created:', newReport._id);
 
-        // Populate before sending
+        // Populate data untuk dihantar balik ke frontend
         await newReport.populate('owner', 'firstName lastName email');
-        await newReport.populate('initiative', 'name status kpi');
+        await newReport.populate('initiative', 'name kpi status');
 
         res.status(201).json({
-            message: 'Report submitted and initiative updated successfully.',
+            message: 'Report submitted successfully.',
             data: newReport
         });
 
-    } catch (err) {
-        console.error('Error creating report:', err);
+    } catch (error) {
+        console.error('Error submitting new report:', error);
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ message: error.message });
+        }
         res.status(500).json({
-            message: 'Server error creating report.',
-            error: err.message
+            message: 'Server error submitting report.',
+            error: error.message
         });
     }
 });
 
-// GET /api/reports - Get all reports (admin only)
-router.get('/', [auth, adminAuth], async (req, res) => {
+// GET /api/reports - Dapatkan semua laporan (untuk Admin) atau laporan ditapis (untuk tier)
+router.get('/', auth, async (req, res) => {
     try {
-        const reports = await Report.find()
+        const user = req.user; // Ini adalah data pengguna penuh dari 'auth.js'
+        let filter = {};
+
+        // ✅ Logik Penapisan Hierarki (Dikemas kini)
+        switch (user.role) {
+            case 'Admin':
+                // Admin nampak semua
+                filter = {};
+                break;
+
+            case 'Bahagian':
+                // ✅ LOGIK KHAS UNTUK BPSH
+                if (user.department === 'BPSH') {
+                    // BPSH boleh lihat semua laporan 'Negeri', 'PPD', 
+                    // dan laporan 'Bahagian' mereka sendiri.
+                    filter = {
+                        $or: [
+                            { submittedTier: 'Negeri' },
+                            { submittedTier: 'PPD' },
+                            { submittedDepartment: 'BPSH' }
+                        ]
+                    };
+                } else if (user.department) {
+                    // Bahagian lain hanya nampak laporan department mereka sendiri
+                    filter = { submittedDepartment: user.department };
+                } else {
+                    // Bahagian tanpa department (jika ada) tidak nampak apa-apa
+                    console.warn(`Pengguna Bahagian ${user.email} tiada department.`);
+                    filter = { _id: null }; // Hasilkan query kosong (tiada hasil)
+                }
+                break;
+
+            case 'Negeri':
+                // Pengguna 'Negeri' nampak semua laporan dari PPD di bawah negerinya
+                const userWithState = await User.findById(user._id).populate('state', 'name');
+                if (!userWithState || !userWithState.state) {
+                    return res.status(403).json({ message: 'Akaun Negeri anda tidak mempunyai pautan Negeri yang sah.' });
+                }
+                // Tapis berdasarkan NAMA Negeri (cth: "Johor")
+                filter = { submittedState: userWithState.state.name };
+                break;
+
+            case 'PPD':
+                // Pengguna 'PPD' hanya nampak laporan dari PPDnya sendiri
+                const userWithPPD = await User.findById(user._id).populate('ppd', 'name');
+                if (!userWithPPD || !userWithPPD.ppd) {
+                    return res.status(403).json({ message: 'Akaun PPD anda tidak mempunyai pautan PPD yang sah.' });
+                }
+                // Tapis berdasarkan NAMA PPD (cth: "PPD Batu Pahat")
+                filter = { submittedPPD: userWithPPD.ppd.name };
+                break;
+
+            case 'User': // Pengguna biasa
+            default:
+                // Pengguna biasa ('User') atau yang tidak dikenali dihalang
+                return res.status(403).json({
+                    message: 'Anda tidak mempunyai kebenaran untuk melihat sumber ini.'
+                });
+        }
+
+        console.log(`User role '${user.role}' sedang mengambil laporan dengan penapis:`, filter);
+
+        // Guna filter yang telah ditetapkan untuk mencari laporan
+        const reports = await Report.find(filter)
             .sort({ createdAt: -1 })
             .populate('owner', 'firstName lastName email')
             .populate({
@@ -126,8 +208,8 @@ router.get('/', [auth, adminAuth], async (req, res) => {
 
         res.json(reports);
     } catch (error) {
-        console.error('Error fetching reports:', error);
-        res.status(500).json({ message: 'Server error while fetching reports.' });
+        console.error('Ralat semasa mengambil laporan:', error);
+        res.status(500).json({ message: 'Ralat server semasa mengambil laporan.' });
     }
 });
 
@@ -218,33 +300,60 @@ router.get('/my-reports', auth, async (req, res) => {
     }
 });
 
-// GET /api/reports/:id - Get single report
+/// GET /api/reports/:id - Get single report details
 router.get('/:id', auth, async (req, res) => {
     try {
-        console.log("📩 GET /reports/:id called, ID =", req.params.id);
         const report = await Report.findById(req.params.id)
+            // 1. Populate Owner (ambil nama & emel)
             .populate('owner', 'firstName lastName email')
-            .populate('initiative', 'name status kpi');
 
-        console.log("🔍 Report found:", report ? "Yes" : "No");
+            // 2. ✅ Populate Initiative dengan CARA YANG BETUL
+            // Kita guna objek { path, select } untuk memilih medan spesifik
+            .populate({
+                path: 'initiative',
+                select: 'name status kpi strategy startDate endDate'
+            });
 
         if (!report) {
-            return res.status(404).json({ message: 'Report not found' });
+            return res.status(404).json({ message: 'Report not found.' });
         }
 
-        // Authorization check
-        const userId = req.user._id || req.user.id;
-        const isOwner = report.owner._id.toString() === userId.toString();
-        const isAdmin = req.user.role?.toLowerCase() === 'admin';
+        // 3. Logik Kebenaran (Authorization)
+        const user = req.user;
 
-        if (!isAdmin && !isOwner) {
-            return res.status(403).json({ message: 'Not authorized' });
+        // Admin boleh tengok semua
+        if (user.role === 'Admin') {
+            return res.json(report);
         }
 
-        res.json(report);
+        // Pemilik laporan boleh tengok
+        if (report.owner && report.owner._id.toString() === user._id.toString()) {
+            return res.json(report);
+        }
+
+        // Bahagian/Negeri/PPD - Semak "cop" pada laporan
+        // Jika laporan ini dihantar oleh 'PPD' di bawah 'Johor', maka 'Negeri Johor' boleh tengok
+
+        // Logik mudah: Jika anda 'Negeri', anda boleh tengok laporan yang submittedState == State anda
+        if (user.role === 'Negeri' && user.state) {
+            // Kita perlu populate state user untuk dapatkan nama
+            const userWithState = await User.findById(user._id).populate('state', 'name');
+            if (report.submittedState === userWithState.state.name) {
+                return res.json(report);
+            }
+        }
+
+        // Jika anda 'Bahagian' (BPSH), boleh tengok laporan Negeri/PPD
+        if (user.role === 'Bahagian' && user.department === 'BPSH') {
+            return res.json(report);
+        }
+
+        // Jika tiada yang sepadan, sekat
+        return res.status(403).json({ message: 'Access denied to this report.' });
+
     } catch (error) {
-        console.error('❌ Error fetching report:', error);
-        res.status(500).json({ message: 'Server error fetching report.' });
+        console.error('Error fetching report details:', error);
+        res.status(500).json({ message: 'Server error fetching report details.' });
     }
 });
 
@@ -330,6 +439,20 @@ router.put('/:id', auth, async (req, res) => {
         console.log('Report ID:', req.params.id);
         console.log('Update data:', req.body);
 
+        report.history.push({
+            updatedBy: userId,
+            updatedAt: new Date(),
+            previousData: {
+                summary: report.summary,
+                challenges: report.challenges,
+                nextSteps: report.nextSteps,
+                period: report.period,
+                completionRate: report.completionRate,
+                kpiSnapshot: report.kpiSnapshot // <--- Simpan nilai lama di sini
+            }
+        });
+        // ========================================
+
         // Update report fields
         if (period) report.period = period;
         if (summary) report.summary = summary;
@@ -396,7 +519,6 @@ router.delete('/:id', auth, async (req, res) => {
             return res.status(404).json({ message: 'Report not found.' });
         }
 
-        // Only admin or owner can delete
         const userId = req.user._id || req.user.id;
         const isOwner = report.owner.toString() === userId.toString();
         const isAdmin = req.user.role === 'Admin';
@@ -407,10 +529,58 @@ router.delete('/:id', auth, async (req, res) => {
             });
         }
 
+        // Halang owner daripada memadam laporan 'Approved' (kekalkan logik ini jika anda mahu)
+        if (!isAdmin && report.status === 'Approved') {
+            return res.status(403).json({
+                message: 'Action denied. Approved reports cannot be deleted by the owner.'
+            });
+        }
+
+        // 1. Simpan ID inisiatif sebelum padam laporan
+        const initiativeId = report.initiative;
+
+        // 2. Padam laporan
         await report.deleteOne();
         console.log('✓ Report deleted:', req.params.id);
 
-        res.json({ message: 'Report deleted successfully.' });
+        // 3. ✅ ROLLBACK: Cari laporan terkini yang TINGGAL untuk inisiatif ini
+        const latestReportRemaining = await Report.findOne({ initiative: initiativeId })
+            .sort({ createdAt: -1 }); // Ambil yang paling baru dicipta
+
+        // 4. Kemas kini Inisiatif Induk
+        const initiative = await Initiative.findById(initiativeId);
+        if (initiative) {
+            if (latestReportRemaining) {
+                // Jika masih ada laporan lain, guna nilai snapshot laporan itu
+                console.log('🔄 Rolling back Initiative KPI to previous report value.');
+                // Gunakan kpiSnapshot jika ada, jika tidak (laporan lama), cuba fallback atau set 0
+                initiative.kpi.currentValue = latestReportRemaining.kpiSnapshot !== undefined
+                    ? latestReportRemaining.kpiSnapshot
+                    : (latestReportRemaining.completionRate / 100 * initiative.kpi.target) || 0;
+
+                // Kemaskini tarikh laporan terakhir
+                initiative.lastReportDate = latestReportRemaining.createdAt;
+            } else {
+                // Jika TIADA laporan langsung, reset KPI ke 0
+                console.log('🔄 No reports left. Resetting Initiative KPI to 0.');
+                initiative.kpi.currentValue = 0;
+                initiative.lastReportDate = null;
+            }
+
+            // Semak semula status (jika sebelum ini 'Completed' tetapi kini nilai turun bawah target)
+            if (initiative.kpi.target > 0) {
+                if (initiative.kpi.currentValue < initiative.kpi.target && initiative.status === 'Completed') {
+                    initiative.status = 'In Progress'; // Atau status asal yang sesuai
+                } else if (initiative.kpi.currentValue >= initiative.kpi.target) {
+                    initiative.status = 'Completed';
+                }
+            }
+
+            await initiative.save();
+            console.log('✓ Initiative updated after report deletion.');
+        }
+
+        res.json({ message: 'Report deleted and initiative adjusted successfully.' });
 
     } catch (error) {
         console.error('Error deleting report:', error);

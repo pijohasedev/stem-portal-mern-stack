@@ -14,6 +14,8 @@ const terasRouter = require('./routes/teras');
 const strategiesRouter = require('./routes/strategies');
 const treeRouter = require('./routes/tree');
 const departmentRoutes = require('./routes/department');
+const stateRoutes = require('./routes/states');
+const ppdRoutes = require('./routes/ppds');
 
 // PENTING: Untuk localhost, dotenv.config() diperlukan untuk membaca .env
 // Di Render, pemboleh ubah persekitaran diinject secara automatik
@@ -74,6 +76,8 @@ app.use('/api/teras', terasRouter);
 app.use('/api/strategies', strategiesRouter);
 app.use('/api/tree', treeRouter);
 app.use('/api/departments', departmentRoutes);
+app.use('/api/states', stateRoutes);
+app.use('/api/ppds', ppdRoutes);
 
 
 // ## 6. START THE SERVER (MUST BE LAST) ##
