@@ -7,6 +7,7 @@ const reportSchema = new Schema({
     owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     reportDate: { type: Date, default: Date.now },
     period: { type: String, required: true },
+    namaProgram: { type: String, required: true },
     summary: { type: String, required: true },
     challenges: { type: String },
     nextSteps: { type: String },

@@ -190,7 +190,7 @@ function OwnerDashboard() {
                 </div>
             ) : (
                 <div className="text-center py-12 bg-card rounded-lg border">
-                    <p className="text-muted-foreground">You have not been assigned any initiatives yet.</p>
+                    <p className="text-muted-foreground">Anda belum diberikan sebarang inisiatif lagi.</p>
                 </div>
             )}
 

@@ -14,7 +14,7 @@ const User = require('../models/user.model');
 // POST /api/reports - Cipta laporan baharu
 router.post('/', auth, async (req, res) => {
     try {
-        const { initiativeId, period, summary, challenges, nextSteps, currentValue } = req.body;
+        const { initiativeId, period, namaProgram, summary, challenges, nextSteps, currentValue } = req.body;
         const userId = req.user._id || req.user.id;
         const user = req.user; // Data pengguna dari middleware auth.js (tidak dipopulate)
 
@@ -81,6 +81,7 @@ router.post('/', auth, async (req, res) => {
             initiative: initiativeId,
             owner: userId,
             period,
+            namaProgram,
             summary,
             challenges: challenges || '',
             nextSteps: nextSteps || '',

@@ -7,13 +7,16 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom'; // ✅ Tambah baris ni
+import { useLocation } from 'react-router-dom';
 import Swal from 'sweetalert2';
-
 
 function SubmitReport({ reportToEdit, onReportSubmitted }) {
     const [initiatives, setInitiatives] = useState([]);
     const [selectedInitiative, setSelectedInitiative] = useState(null);
+
+    // ✅ 1. State untuk Nama Program
+    const [namaProgram, setNamaProgram] = useState('');
+
     const [period, setPeriod] = useState('');
     const [currentValue, setCurrentValue] = useState('');
     const [summary, setSummary] = useState('');
@@ -22,11 +25,9 @@ function SubmitReport({ reportToEdit, onReportSubmitted }) {
     const [adminFeedback, setAdminFeedback] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // ✅ Tambah bahagian ini di sini:
     const location = useLocation();
     const queryParams = new URLSearchParams(location.search);
     const preselectedInitiativeId = queryParams.get('initiativeId');
-
 
     const isEditMode = !!reportToEdit;
 
@@ -38,6 +39,10 @@ function SubmitReport({ reportToEdit, onReportSubmitted }) {
 
             // Pre-fill form with existing report data
             setPeriod(reportToEdit.period);
+
+            // ✅ 2. Pre-fill Nama Program jika Edit Mode
+            setNamaProgram(reportToEdit.namaProgram || '');
+
             setSummary(reportToEdit.summary);
             setChallenges(reportToEdit.challenges || '');
             setNextSteps(reportToEdit.nextSteps || '');
@@ -53,14 +58,9 @@ function SubmitReport({ reportToEdit, onReportSubmitted }) {
             })
                 .then(res => {
                     setSelectedInitiative(res.data);
-                    // Set current value from initiative
-                    // ✅ PEMBETULAN: Gunakan snapshot dari laporan jika ada.
-                    // Jika tiada (laporan lama), baru fallback kepada data terkini inisiatif.
                     if (reportToEdit.kpiSnapshot !== undefined && reportToEdit.kpiSnapshot !== null) {
-                        console.log("Using KPI snapshot for edit:", reportToEdit.kpiSnapshot);
                         setCurrentValue(reportToEdit.kpiSnapshot);
                     } else {
-                        console.log("No snapshot found, using live initiative KPI:", res.data.kpi.currentValue);
                         setCurrentValue(res.data.kpi.currentValue || 0);
                     }
                 })
@@ -85,15 +85,11 @@ function SubmitReport({ reportToEdit, onReportSubmitted }) {
 
                     setInitiatives(activeInitiatives);
 
-                    // ✅ Auto-select initiative dari URL jika ada
                     if (preselectedInitiativeId) {
                         const found = activeInitiatives.find(i => i._id === preselectedInitiativeId);
                         if (found) {
-                            console.log("Auto-selecting initiative:", found.name);
                             setSelectedInitiative(found);
                             setCurrentValue(found.kpi.currentValue || 0);
-                        } else {
-                            console.warn("⚠️ Initiative not found in list:", preselectedInitiativeId);
                         }
                     }
                 })
@@ -105,17 +101,16 @@ function SubmitReport({ reportToEdit, onReportSubmitted }) {
                     setLoading(false);
                 });
         }
-    }, [reportToEdit, isEditMode]);
+    }, [reportToEdit, isEditMode, preselectedInitiativeId]);
 
     const handleInitiativeChange = (value) => {
         const initiative = initiatives.find(i => i._id === value);
         setSelectedInitiative(initiative);
-
-        // Set the current KPI value from selected initiative
         setCurrentValue(initiative?.kpi?.currentValue || 0);
 
         // Reset other fields when changing initiative
         setPeriod('');
+        setNamaProgram(''); // ✅ Reset nama program juga
         setSummary('');
         setChallenges('');
         setNextSteps('');
@@ -124,7 +119,6 @@ function SubmitReport({ reportToEdit, onReportSubmitted }) {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // Validation
         if (!selectedInitiative) {
             Swal.fire('Error', 'Please select an initiative', 'error');
             return;
@@ -135,9 +129,11 @@ function SubmitReport({ reportToEdit, onReportSubmitted }) {
             return;
         }
 
+        // ✅ 3. Masukkan namaProgram ke dalam data yang dihantar
         const reportData = {
             initiativeId: selectedInitiative._id,
             period,
+            namaProgram, // <--- Di sini
             summary,
             challenges: challenges || '',
             nextSteps: nextSteps || '',
@@ -150,7 +146,6 @@ function SubmitReport({ reportToEdit, onReportSubmitted }) {
             const token = localStorage.getItem('authToken');
 
             if (isEditMode) {
-                // ✅ UPDATE: Resubmit after revision
                 await api.put(`/reports/${reportToEdit._id}`, reportData, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
@@ -162,11 +157,9 @@ function SubmitReport({ reportToEdit, onReportSubmitted }) {
                     confirmButtonText: 'OK'
                 });
 
-                // Call callback to navigate back or refresh list
                 if (onReportSubmitted) onReportSubmitted();
 
             } else {
-                // ✅ CREATE: New report submission
                 await api.post('/reports', reportData, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
@@ -178,8 +171,9 @@ function SubmitReport({ reportToEdit, onReportSubmitted }) {
                     confirmButtonText: 'OK'
                 });
 
-                // Reset form for next submission
+                // Reset form
                 setPeriod('');
+                setNamaProgram('');
                 setSummary('');
                 setChallenges('');
                 setNextSteps('');
@@ -221,7 +215,7 @@ function SubmitReport({ reportToEdit, onReportSubmitted }) {
     return (
         <div className="max-w-4xl mr-auto pl-2">
             <h1 className="text-3xl font-bold mb-4">
-                {isEditMode ? 'Revise & Resubmit Report' : 'Submit Progress Report'}
+                {isEditMode ? 'Revise & Resubmit Report' : 'Hantar Laporan Inisiatif'}
             </h1>
 
             <Card>
@@ -235,7 +229,6 @@ function SubmitReport({ reportToEdit, onReportSubmitted }) {
                 </CardHeader>
 
                 <CardContent>
-                    {/* Admin Feedback Alert - Show only in edit mode with feedback */}
                     {isEditMode && adminFeedback && (
                         <div className="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded">
                             <div className="flex items-start">
@@ -271,8 +264,8 @@ function SubmitReport({ reportToEdit, onReportSubmitted }) {
                                     options={initiativeOptions}
                                     value={selectedInitiative?._id || ''}
                                     onSelect={handleInitiativeChange}
-                                    placeholder="Select an initiative..."
-                                    searchPlaceholder="Search initiatives..."
+                                    placeholder="Pilih inisiatif..."
+                                    searchPlaceholder="Cari inisiatif..."
                                 />
                             )}
                         </div>
@@ -302,6 +295,19 @@ function SubmitReport({ reportToEdit, onReportSubmitted }) {
                                     </div>
                                 </div>
 
+                                {/* ✅ 4. Nama Program Field (Ditambah di sini) */}
+                                <div>
+                                    <Label htmlFor="namaProgram">Nama Program / Aktiviti *</Label>
+                                    <Input
+                                        id="namaProgram"
+                                        name="namaProgram"
+                                        placeholder="Contoh: Bengkel Pemantapan STEM Fasa 1"
+                                        value={namaProgram}
+                                        onChange={(e) => setNamaProgram(e.target.value)}
+                                        required
+                                    />
+                                </div>
+
                                 {/* Period and Current Value */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div>
@@ -313,7 +319,7 @@ function SubmitReport({ reportToEdit, onReportSubmitted }) {
                                             required
                                         >
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Select a period..." />
+                                                <SelectValue placeholder="Pilih tempoh pelaporan." />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="1stQuarter">Sukuan Pertama</SelectItem>
