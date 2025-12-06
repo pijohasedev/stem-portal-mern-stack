@@ -2,10 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-
 @layer base {
   :root {
-    /* This is the Light Theme (for future use) */
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
@@ -29,13 +27,9 @@
   }
 
   .dark {
-    /* This is the Dark Theme from your example */
     --background: 240 10% 3.9%;
-    /* A deep, near-black charcoal */
     --foreground: 0 0% 98%;
-    /* A crisp, almost-white text */
     --card: 240 4% 10%;
-    /* A slightly lighter gray for cards/sidebar */
     --card-foreground: 0 0% 98%;
     --popover: 240 10% 3.9%;
     --popover-foreground: 0 0% 98%;
@@ -60,14 +54,6 @@
   }
 }
 
-
-/* These lines must come AFTER the theme block */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* --- ADD THIS NEW ANIMATION CODE --- */
-/* --- Animation for Tree Table --- */
 @layer utilities {
   @keyframes enter-animation {
     from {
@@ -84,4 +70,70 @@
   .animate-enter {
     animation: enter-animation 0.2s ease-out forwards;
   }
+
+  /* Custom Scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 rounded-full;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-400;
+  }
+}
+
+/* --- GLOBAL STYLES (Di luar @layer supaya priority paling tinggi) --- */
+
+/* SweetAlert Fix - Nilai 99999 memastikan ia mengatasi semua Modal lain */
+/* === SWEETALERT Z-INDEX FIX === */
+/* Container utama */
+/* SWEETALERT SUPER FIX — Pastikan popup berada paling atas */
+.swal2-container {
+  position: fixed !important;
+  z-index: 9999999 !important;
+}
+
+.swal2-popup {
+  z-index: 9999999 !important;
+}
+
+.swal-on-top {
+  z-index: 999999 !important;
+}
+
+/* Backdrop/overlay belakang popup */
+.swal2-container.swal2-backdrop-show {
+  z-index: 999998 !important;
+}
+
+/* Icon dalam popup */
+.swal2-icon {
+  z-index: 999999 !important;
+}
+
+/* Radix UI Dialog (shadcn/ui) - Lebih rendah dari SweetAlert */
+[data-radix-dialog-overlay] {
+  z-index: 9998 !important;
+}
+
+[data-radix-dialog-content] {
+  z-index: 9999 !important;
+}
+
+/* Leaflet Map Fixes */
+.leaflet-pane {
+  z-index: 10 !important;
+}
+
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 20 !important;
 }

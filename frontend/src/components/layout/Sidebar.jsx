@@ -1,12 +1,23 @@
 import { cn } from '@/lib/utils';
 import {
-    ArchiveBoxIcon,
-    ChartBarIcon,
-    DocumentDuplicateIcon, MapIcon,
-    PlusIcon,
-    PowerIcon,
-    UserGroupIcon
-} from '@heroicons/react/24/outline';
+    // Ikon Asal
+    Archive,
+    BarChart3,
+    BookOpen,
+    Building2,
+    CalendarClock,
+    // Ikon Modul Enrolmen & Admin
+    ClipboardCheck,
+    Download,
+    Files,
+    FileSpreadsheet,
+    LogOut,
+    Map,
+    Megaphone,
+    Plus,
+    UploadCloud,
+    Users
+} from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 
 function SidebarLink({ to, icon: Icon, children, isCollapsed }) {
@@ -53,9 +64,33 @@ function SectionLabel({ children, isCollapsed }) {
 function Sidebar({ isOpen, onLogout, userRole, user }) {
     const isCollapsed = !isOpen;
 
-    const isMonitorRole = userRole === 'Admin' || userRole === 'Bahagian' || userRole === 'Negeri';
-    const isReporterRole = userRole === 'PPD' || userRole === 'User'; // Pelapor Tulen
-    const isHybridRole = userRole === 'Bahagian' || userRole === 'Negeri'; // Pemantau + Pelapor
+    // 1. NORMALIZE ROLE
+    const role = (userRole || '').toLowerCase();
+
+    // 2. DEFINE PERMISSIONS
+    const isAdmin = role === 'admin';
+    const isPPD = role === 'ppd';
+
+    // Nota: 'isJPN' di sini kekal merangkumi Bahagian & Negeri untuk modul LAMA (Inisiatif)
+    const isJPN = role === 'negeri' || role === 'bahagian';
+    const isUser = role === 'user';
+
+    // Kumpulan Menu Asal (Inisiatif)
+    const isReporter = isPPD || isUser || isJPN;
+    const isMonitor = isAdmin || isJPN;
+
+    // --- LOGIK BARU UNTUK ENROLMEN ---
+    // Bahagian TIDAK TERLIBAT dalam modul ini.
+
+    const showEnrollmentVerify = isPPD || isAdmin;
+
+    // ✅ PERUBAHAN: Hanya 'negeri' (JPN sebenar) atau Admin boleh tengok Dashboard Enrolmen
+    const showEnrollmentDashboard = (role === 'negeri') || isAdmin;
+
+    const showEnrollmentImport = isAdmin;
+    const showEnrollmentExport = isAdmin;
+    const showSessionSettings = isAdmin;
+    const showKPMDashboard = isAdmin;
 
     return (
         <aside
@@ -80,66 +115,94 @@ function Sidebar({ isOpen, onLogout, userRole, user }) {
             {/* MENU */}
             <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1 custom-scrollbar">
 
-                {/* 1. Pautan untuk Pelapor Tulen (PPD/User) */}
-                {isReporterRole && (
+                {/* A. INISIATIF SAYA */}
+                {isReporter && (
                     <>
                         <SectionLabel isCollapsed={isCollapsed}>Inisiatif Saya</SectionLabel>
-                        <SidebarLink to="/" icon={ArchiveBoxIcon} isCollapsed={isCollapsed}>Tugasan Inisiatif</SidebarLink>
-                        <SidebarLink to="/submit-report" icon={PlusIcon} isCollapsed={isCollapsed}>Hantar Laporan</SidebarLink>
-                        <SidebarLink to="/report-history" icon={DocumentDuplicateIcon} isCollapsed={isCollapsed}>Sejarah Laporan</SidebarLink>
+                        <SidebarLink to="/" icon={Archive} isCollapsed={isCollapsed}>Tugasan Inisiatif</SidebarLink>
+                        <SidebarLink to="/submit-report" icon={Plus} isCollapsed={isCollapsed}>Hantar Laporan</SidebarLink>
+                        <SidebarLink to="/report-history" icon={Files} isCollapsed={isCollapsed}>Sejarah Laporan</SidebarLink>
                     </>
                 )}
 
-                {/* 2. Pautan untuk Pemantau (Admin/Bahagian/Negeri) */}
-                {/* ------------------------------------------------------- */}
-                {/* 2. Menu PEMANTAU (Admin/Bahagian/Negeri) */}
-                {/* ------------------------------------------------------- */}
-                {(userRole === 'Admin' || userRole === 'Bahagian' || userRole === 'Negeri') && (
+                {/* B. PEMANTAUAN UTAMA */}
+                {isMonitor && (
                     <>
                         <SectionLabel isCollapsed={isCollapsed}>Pemantauan Utama</SectionLabel>
 
-                        {/* Dashboard → Admin SAHAJA */}
-                        {userRole === 'Admin' && (
-                            <SidebarLink to="/" icon={ChartBarIcon} isCollapsed={isCollapsed}>
-                                Dashboard
+                        {isAdmin && (
+                            <>
+                                <SidebarLink to="/" icon={BarChart3} isCollapsed={isCollapsed}>Dashboard</SidebarLink>
+                                <SidebarLink to="/initiatives" icon={Archive} isCollapsed={isCollapsed}>Senarai Inisiatif</SidebarLink>
+                            </>
+                        )}
+
+                        <SidebarLink to="/reports" icon={Files} isCollapsed={isCollapsed}>Pantau Laporan</SidebarLink>
+                    </>
+                )}
+
+                <SectionLabel isCollapsed={isCollapsed}>Pelaporan Aktiviti</SectionLabel>
+                <SidebarLink to="/programs" icon={BookOpen} isCollapsed={isCollapsed}>Aktiviti STEM</SidebarLink>
+
+                {/* C. PENGURUSAN ENROLMEN (PPD & NEGERI SAHAJA) */}
+                {(showEnrollmentVerify || showEnrollmentDashboard || showEnrollmentImport) && (
+                    <>
+                        <SectionLabel isCollapsed={isCollapsed}>Pengurusan Enrolmen</SectionLabel>
+
+                        {showEnrollmentVerify && (
+                            <SidebarLink to="/enrollment/verify" icon={ClipboardCheck} isCollapsed={isCollapsed}>
+                                Semakan PPD
                             </SidebarLink>
                         )}
 
-                        {/* Senarai Inisiatif → Admin SAHAJA */}
-                        {userRole === 'Admin' && (
-                            <SidebarLink to="/initiatives" icon={ArchiveBoxIcon} isCollapsed={isCollapsed}>
-                                Senarai Inisiatif
+                        {showEnrollmentDashboard && (
+                            <SidebarLink to="/enrollment/jpn-dashboard" icon={FileSpreadsheet} isCollapsed={isCollapsed}>
+                                Dashboard Enrolmen
                             </SidebarLink>
                         )}
 
-                        {/* Pantau Laporan → Semua pemantau (Admin/Bahagian/Negeri) */}
-                        <SidebarLink to="/reports" icon={DocumentDuplicateIcon} isCollapsed={isCollapsed}>
-                            Pantau Laporan
+                        {showKPMDashboard && (
+                            <SidebarLink to="/enrollment/kpm-dashboard" icon={Building2} isCollapsed={isCollapsed}>
+                                Dashboard KPM
+                            </SidebarLink>
+                        )}
+
+                        {showEnrollmentImport && (
+                            <SidebarLink to="/enrollment/import" icon={UploadCloud} isCollapsed={isCollapsed}>
+                                Import Data
+                            </SidebarLink>
+                        )}
+
+                        {showEnrollmentExport && (
+                            <SidebarLink to="/enrollment/export" icon={Download} isCollapsed={isCollapsed}>
+                                Eksport Laporan
+                            </SidebarLink>
+                        )}
+
+                        {showSessionSettings && (
+                            <SidebarLink to="/enrollment/settings" icon={CalendarClock} isCollapsed={isCollapsed}>
+                                Tetapan Sesi
+                            </SidebarLink>
+                        )}
+                    </>
+                )}
+
+                {/* D. KOMUNIKASI & ADMIN */}
+                {isAdmin && (
+                    <>
+                        <SectionLabel isCollapsed={isCollapsed}>Komunikasi</SectionLabel>
+                        <SidebarLink to="/admin/announcements" icon={Megaphone} isCollapsed={isCollapsed}>
+                            Pengumuman
                         </SidebarLink>
-                    </>
-                )}
 
-
-                {/* 3. Pautan untuk Hybrid (Bahagian/Negeri yang juga kena lapor.) */}
-                {isHybridRole && (
-                    <>
-                        <SectionLabel isCollapsed={isCollapsed}>Pelaporan Kendiri</SectionLabel>
-
-                        <SidebarLink to="/" icon={ArchiveBoxIcon} isCollapsed={isCollapsed}>Tugasan Inisiatif</SidebarLink>
-
-                        <SidebarLink to="/submit-report" icon={PlusIcon} isCollapsed={isCollapsed}>Hantar Laporan</SidebarLink>
-                        <SidebarLink to="/report-history" icon={DocumentDuplicateIcon} isCollapsed={isCollapsed}>Sejarah Laporan</SidebarLink>
-                    </>
-                )}
-
-                {/* 4. Pautan Admin Sahaja */}
-                {userRole === 'Admin' && (
-                    <>
                         <SectionLabel isCollapsed={isCollapsed}>Pentadbiran</SectionLabel>
-                        <SidebarLink to="/planning" icon={MapIcon} isCollapsed={isCollapsed}>Perancangan Dasar</SidebarLink>
-                        <SidebarLink to="/users" icon={UserGroupIcon} isCollapsed={isCollapsed}>Pengguna Sistem</SidebarLink>
+                        <SidebarLink to="/planning" icon={Map} isCollapsed={isCollapsed}>Perancangan Dasar</SidebarLink>
+                        <SidebarLink to="/users" icon={Users} isCollapsed={isCollapsed}>Pengguna Sistem</SidebarLink>
                     </>
                 )}
+
+
+
             </nav>
 
             {/* FOOTER */}
@@ -156,7 +219,7 @@ function Sidebar({ isOpen, onLogout, userRole, user }) {
                         </div>
                     )}
                     <button onClick={onLogout} title="Log Keluar" className="group flex items-center justify-center w-8 h-8 rounded-full bg-white dark:bg-slate-800 text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all shadow-sm">
-                        <PowerIcon className="h-4 w-4" />
+                        <LogOut className="h-4 w-4" />
                     </button>
                 </div>
             </div>

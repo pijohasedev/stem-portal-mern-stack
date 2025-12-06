@@ -5,16 +5,29 @@ const auth = require('../middleware/auth');
 const adminAuth = require('../middleware/adminAuth');
 
 // GET /api/strategies - Get all strategies, or filter by teras
-// Example: /api/strategies?terasId=some_teras_id
+// Example: /api/strategies?teras=ID  OR  /api/strategies?terasId=ID
 router.get('/', auth, async (req, res) => {
     try {
         const query = {};
+
+        // ✅ 1. Logik Baru (Standard query)
+        if (req.query.teras) {
+            query.teras = req.query.teras;
+        }
+
+        // ✅ 2. Logik Asal (Legacy Support - terasId)
         if (req.query.terasId) {
             query.teras = req.query.terasId;
         }
-        const strategies = await Strategy.find(query).sort('name');
+
+        // ✅ 3. Populate: Bawa info Teras sekali
+        const strategies = await Strategy.find(query)
+            .populate('teras') // Penting untuk frontend memaparkan nama Teras
+            .sort('name');
+
         res.json(strategies);
     } catch (error) {
+        console.error("Error fetching strategies:", error);
         res.status(500).json({ message: 'Server error fetching strategies.' });
     }
 });
@@ -22,11 +35,18 @@ router.get('/', auth, async (req, res) => {
 // POST /api/strategies - Create a new strategy (Admin Only)
 router.post('/', [auth, adminAuth], async (req, res) => {
     try {
-        const { name, teras } = req.body;
+        const { name, teras, code } = req.body; // Tambah 'code' jika ada
+
         if (!name || !teras) {
             return res.status(400).json({ message: 'Name and Teras are required.' });
         }
-        const newStrategy = new Strategy({ name, teras });
+
+        const newStrategy = new Strategy({
+            name,
+            teras,
+            code: code || "" // Optional
+        });
+
         await newStrategy.save();
         res.status(201).json(newStrategy);
     } catch (error) {

@@ -5,16 +5,30 @@ const auth = require('../middleware/auth');
 const adminAuth = require('../middleware/adminAuth');
 
 // GET /api/teras - Get all teras, or filter by policy
-// Example: /api/teras?policyId=some_policy_id
+// Example: /api/teras?policy=some_id  OR  /api/teras?policyId=some_id
 router.get('/', auth, async (req, res) => {
     try {
         const query = {};
+
+        // ✅ 1. Logik Baru (Untuk Modul Laporan Aktiviti)
+        // Frontend baru hantar: /api/teras?policy=...
+        if (req.query.policy) {
+            query.policy = req.query.policy;
+        }
+
+        // ✅ 2. Logik Asal (Kekalkan supaya modul lama tak rosak)
+        // Kod asal anda hantar: /api/teras?policyId=...
         if (req.query.policyId) {
             query.policy = req.query.policyId;
         }
+
+        // Nota: Jika anda ada field 'code' (T1, T2), lebih baik sort('code'). 
+        // Jika tiada, kekalkan sort('name').
         const terasItems = await Teras.find(query).sort('name');
+
         res.json(terasItems);
     } catch (error) {
+        console.error("Error fetching teras:", error);
         res.status(500).json({ message: 'Server error fetching teras.' });
     }
 });
@@ -22,11 +36,18 @@ router.get('/', auth, async (req, res) => {
 // POST /api/teras - Create a new teras (Admin Only)
 router.post('/', [auth, adminAuth], async (req, res) => {
     try {
-        const { name, policy } = req.body;
+        const { name, policy, code } = req.body; // Tambah 'code' jika ada dalam model
+
         if (!name || !policy) {
             return res.status(400).json({ message: 'Name and policy are required.' });
         }
-        const newTeras = new Teras({ name, policy });
+
+        const newTeras = new Teras({
+            name,
+            policy,
+            code: code || "" // Optional: Simpan kod jika ada
+        });
+
         await newTeras.save();
         res.status(201).json(newTeras);
     } catch (error) {
@@ -54,7 +75,7 @@ router.delete('/:id', [auth, adminAuth], async (req, res) => {
         if (!teras) {
             return res.status(404).json({ message: 'Teras not found.' });
         }
-        // To-do in a real app: also delete child Strategies
+        // To-do: Mungkin perlu padam strategi berkaitan secara manual atau guna pre-hook
         res.json({ message: 'Teras deleted successfully.' });
     } catch (error) {
         res.status(500).json({ message: 'Server error deleting teras.' });

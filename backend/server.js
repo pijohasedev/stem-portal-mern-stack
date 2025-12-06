@@ -16,6 +16,8 @@ const treeRouter = require('./routes/tree');
 const departmentRoutes = require('./routes/department');
 const stateRoutes = require('./routes/states');
 const ppdRoutes = require('./routes/ppds');
+const enrollmentRoutes = require('./routes/enrollment');
+const announcementRoutes = require('./routes/announcements');
 
 // PENTING: Untuk localhost, dotenv.config() diperlukan untuk membaca .env
 // Di Render, pemboleh ubah persekitaran diinject secara automatik
@@ -78,6 +80,9 @@ app.use('/api/tree', treeRouter);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/states', stateRoutes);
 app.use('/api/ppds', ppdRoutes);
+app.use('/api/enrollment', enrollmentRoutes);
+app.use('/api/announcements', announcementRoutes);
+app.use('/api/programs', require('./routes/programs'));
 
 
 // ## 6. START THE SERVER (MUST BE LAST) ##
