@@ -118,4 +118,29 @@ router.get('/export', auth, async (req, res) => {
     }
 });
 
+// 5. UPDATE LAPORAN (Edit)
+router.put('/:id', auth, async (req, res) => {
+    try {
+        const program = await ProgramReport.findById(req.params.id);
+
+        if (!program) return res.status(404).json({ message: "Rekod tidak dijumpai" });
+
+        // Check ownership (jika bukan admin)
+        if (req.user.role !== 'Admin' && program.createdBy.toString() !== req.user.id) {
+            return res.status(403).json({ message: "Anda tiada kebenaran untuk mengedit rekod ini." });
+        }
+
+        const updatedProgram = await ProgramReport.findByIdAndUpdate(
+            req.params.id,
+            req.body,
+            { new: true } // Return updated document
+        );
+
+        res.json(updatedProgram);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Gagal mengemaskini rekod." });
+    }
+});
+
 module.exports = router;

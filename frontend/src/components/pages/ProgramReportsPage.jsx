@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { Download, FileSpreadsheet, MapPin, PlusCircle, Target } from "lucide-react";
+import { Download, Eye, FileSpreadsheet, MapPin, Pencil, PlusCircle, Target, Trash2 } from "lucide-react";
 import { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
@@ -40,8 +40,8 @@ function SearchField({ onLocationFound }) {
     return null;
 }
 
-function LocationPicker({ position, setPosition }) {
-    useMapEvents({ click(e) { setPosition(e.latlng); }, });
+function LocationPicker({ position, setPosition, readOnly }) {
+    useMapEvents({ click(e) { if (!readOnly) setPosition(e.latlng); }, });
     return position ? <Marker position={position} /> : null;
 }
 
@@ -53,24 +53,29 @@ function ProgramReportsPage() {
     const [terasList, setTerasList] = useState([]);
     const [strategyList, setStrategyList] = useState([]);
 
+    // ✅ Modal States dengan Mode (create/edit/view)
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [modalMode, setModalMode] = useState("create"); // "create" | "edit" | "view"
+    const [selectedId, setSelectedId] = useState(null);
+
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [exportDates, setExportDates] = useState({ start: "", end: "" });
     const [exporting, setExporting] = useState(false);
-    const [isSaving, setIsSaving] = useState(false); // ✅ BONUS: Loading state
+    const [isSaving, setIsSaving] = useState(false);
 
     const targetOptions = ["Murid", "Guru", "Ibu Bapa", "Komuniti", "PPD", "JPN", "Industri"];
     const levelOptions = ["Sekolah", "PPD", "Negeri/JPN", "Kebangsaan", "Antarabangsa", "Zon Utara", "Zon Selatan", "Zon Timur", "Zon Tengah", "Zon Sabah", "Zon Sarawak"];
 
-    const [formData, setFormData] = useState({
-        teras: "",
-        strategy: "",
+    // ✅ Initial Form State
+    const initialFormState = {
+        teras: "", strategy: "",
         title: "", venue: "", dateStart: "", dateEnd: "", participantCount: 0,
         description: "", organizerName: "", programLevel: "Sekolah",
         targetGroups: [], lat: 3.1412, lng: 101.6865
-    });
+    };
 
-    // ID POLISI STEM
+    const [formData, setFormData] = useState(initialFormState);
+
     const STEM_POLICY_ID = "690afaa7f1255ad854c7be11";
 
     useEffect(() => {
@@ -99,9 +104,24 @@ function ProgramReportsPage() {
 
     useEffect(() => { fetchPrograms(); }, [filterLevel]);
 
-    const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+    const handleChange = (e) => {
+        if (modalMode === "view") return;
+
+        const { name, value } = e.target;
+
+        // ✅ Hadkan naratif kepada 20 patah perkataan
+        if (name === "description") {
+            const words = value.trim().split(/\s+/);
+            if (words.length > 20 && value.trim() !== "") {
+                return; // Tidak update jika melebihi 20 patah perkataan
+            }
+        }
+
+        setFormData({ ...formData, [name]: value });
+    };
 
     const handleTargetCheck = (target, isChecked) => {
+        if (modalMode === "view") return;
         setFormData(prev => {
             let newTargets = [...prev.targetGroups];
             if (isChecked) {
@@ -115,6 +135,7 @@ function ProgramReportsPage() {
     };
 
     const handleTargetCountChange = (target, count) => {
+        if (modalMode === "view") return;
         setFormData(prev => {
             const newTargets = prev.targetGroups.map(t => t.group === target ? { ...t, count: Number(count) } : t);
             const total = newTargets.reduce((sum, item) => sum + Number(item.count), 0);
@@ -123,11 +144,91 @@ function ProgramReportsPage() {
     };
 
     const handleSearchLocation = (result) => {
+        if (modalMode === "view") return;
         setFormData(prev => ({ ...prev, lat: result.lat, lng: result.lng, venue: prev.venue || result.label }));
     };
 
-    // ✅ UPDATED: Handle Submit dengan Modal Close + Alert + Reopen
+    // ✅ 1. BUKA MODAL CREATE
+    const openCreateModal = () => {
+        setFormData(initialFormState);
+        setModalMode("create");
+        setSelectedId(null);
+        setIsModalOpen(true);
+    };
+
+    // ✅ 2. BUKA MODAL EDIT
+    const openEditModal = (program) => {
+        setFormData({
+            teras: program.teras?._id || program.teras || "",
+            strategy: program.strategy?._id || program.strategy || "",
+            title: program.title,
+            venue: program.venue,
+            dateStart: program.dateStart ? new Date(program.dateStart).toISOString().split('T')[0] : "",
+            dateEnd: program.dateEnd ? new Date(program.dateEnd).toISOString().split('T')[0] : "",
+            participantCount: program.participantCount,
+            description: program.description || "",
+            organizerName: program.organizerName || "",
+            programLevel: program.programLevel,
+            targetGroups: program.targetGroups || [],
+            lat: program.location?.lat || 3.1412,
+            lng: program.location?.lng || 101.6865
+        });
+        setModalMode("edit");
+        setSelectedId(program._id);
+        setIsModalOpen(true);
+    };
+
+    // ✅ 3. BUKA MODAL VIEW
+    const openViewModal = (program) => {
+        openEditModal(program); // Load data sama
+        setModalMode("view"); // Set mode ke view
+    };
+
+    // ✅ 4. DELETE PROGRAM
+    const handleDelete = async (id) => {
+        const result = await Swal.fire({
+            title: 'Adakah anda pasti?',
+            text: "Data ini akan dipadam secara kekal!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: 'Ya, Padam!',
+            cancelButtonText: 'Batal'
+        });
+
+        if (result.isConfirmed) {
+            try {
+                const token = localStorage.getItem('authToken');
+                await api.delete(`/programs/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+
+                Swal.fire({
+                    title: 'Dipadam!',
+                    text: 'Rekod telah berjaya dipadam.',
+                    icon: 'success',
+                    confirmButtonColor: '#16a34a'
+                });
+
+                fetchPrograms();
+            } catch (error) {
+                console.error(error);
+                Swal.fire({
+                    title: 'Ralat',
+                    text: 'Gagal memadam rekod.',
+                    icon: 'error',
+                    confirmButtonColor: '#dc2626'
+                });
+            }
+        }
+    };
+
+    // ✅ 5. SUBMIT (Create / Update)
     const handleSubmit = async () => {
+        if (modalMode === "view") {
+            setIsModalOpen(false);
+            return;
+        }
+
         // Validate all required fields
         const missingFields = [];
         if (!formData.teras) missingFields.push("Teras");
@@ -149,7 +250,7 @@ function ProgramReportsPage() {
                     confirmButtonText: "OK",
                     confirmButtonColor: "#2563eb"
                 }).then(() => {
-                    setIsModalOpen(true); // Buka balik modal
+                    setIsModalOpen(true);
                 });
             }, 100);
             return;
@@ -160,25 +261,25 @@ function ProgramReportsPage() {
         try {
             const token = localStorage.getItem('authToken');
             const payload = { ...formData, location: { lat: formData.lat, lng: formData.lng } };
-            await api.post('/programs', payload, { headers: { Authorization: `Bearer ${token}` } });
+
+            if (modalMode === "create") {
+                await api.post('/programs', payload, { headers: { Authorization: `Bearer ${token}` } });
+            } else if (modalMode === "edit") {
+                await api.put(`/programs/${selectedId}`, payload, { headers: { Authorization: `Bearer ${token}` } });
+            }
 
             setIsModalOpen(false);
             setIsSaving(false);
 
             // Reset form
-            setFormData({
-                teras: "", strategy: "",
-                title: "", venue: "", dateStart: "", dateEnd: "", participantCount: 0,
-                description: "", organizerName: "",
-                programLevel: "Sekolah", targetGroups: [], lat: 3.1412, lng: 101.6865
-            });
+            setFormData(initialFormState);
 
             fetchPrograms();
 
             setTimeout(() => {
                 Swal.fire({
                     title: "Berjaya!",
-                    text: "Laporan aktiviti telah direkodkan.",
+                    text: modalMode === "create" ? "Laporan aktiviti telah direkodkan." : "Laporan aktiviti telah dikemaskini.",
                     icon: "success",
                     confirmButtonText: "OK",
                     confirmButtonColor: "#16a34a"
@@ -198,13 +299,13 @@ function ProgramReportsPage() {
                     confirmButtonText: "OK",
                     confirmButtonColor: "#dc2626"
                 }).then(() => {
-                    setIsModalOpen(true); // Buka balik modal
+                    setIsModalOpen(true);
                 });
             }, 100);
         }
     };
 
-    // ✅ UPDATED: Handle Export dengan Modal Close + Alert
+    // ✅ EXPORT FUNCTION
     const handleExport = async () => {
         if (!exportDates.start || !exportDates.end) {
             setIsExportModalOpen(false);
@@ -217,7 +318,7 @@ function ProgramReportsPage() {
                     confirmButtonText: "OK",
                     confirmButtonColor: "#2563eb"
                 }).then(() => {
-                    setIsExportModalOpen(true); // Buka balik modal
+                    setIsExportModalOpen(true);
                 });
             }, 100);
             return;
@@ -246,7 +347,7 @@ function ProgramReportsPage() {
                         confirmButtonText: "OK",
                         confirmButtonColor: "#2563eb"
                     }).then(() => {
-                        setIsExportModalOpen(true); // Buka balik modal
+                        setIsExportModalOpen(true);
                     });
                 }, 100);
                 return;
@@ -313,7 +414,7 @@ function ProgramReportsPage() {
                     confirmButtonText: "OK",
                     confirmButtonColor: "#dc2626"
                 }).then(() => {
-                    setIsExportModalOpen(true); // Buka balik modal
+                    setIsExportModalOpen(true);
                 });
             }, 100);
         }
@@ -321,13 +422,14 @@ function ProgramReportsPage() {
 
     const formatDate = (dateString) => dateString ? new Date(dateString).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : "";
 
-    // Filter Strategi ikut Teras yang dipilih
     const filteredStrategies = formData.teras
         ? strategyList.filter(s => {
             const terasId = s.teras?._id || s.teras;
             return terasId === formData.teras;
         })
         : [];
+
+    const isReadOnly = modalMode === "view";
 
     return (
         <div className="p-6 space-y-6 bg-slate-50 min-h-screen">
@@ -341,7 +443,7 @@ function ProgramReportsPage() {
                     <Button onClick={() => setIsExportModalOpen(true)} variant="outline" className="gap-2 border-green-600 text-green-700 hover:bg-green-50">
                         <FileSpreadsheet className="h-4 w-4" /> Eksport Data
                     </Button>
-                    <Button onClick={() => setIsModalOpen(true)} className="gap-2 bg-blue-600 hover:bg-blue-700 shadow-sm">
+                    <Button onClick={openCreateModal} className="gap-2 bg-blue-600 hover:bg-blue-700 shadow-sm">
                         <PlusCircle className="h-4 w-4" /> Lapor Aktiviti
                     </Button>
                 </div>
@@ -363,20 +465,21 @@ function ProgramReportsPage() {
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-slate-100 border-b border-slate-200">
-                                <TableHead className="w-[60px] text-center font-semibold text-slate-700 py-4">No.</TableHead>
-                                <TableHead className="min-w-[280px] font-semibold text-slate-700 py-4">Maklumat Program</TableHead>
+                                <TableHead className="w-[60px] text-center font-semibold text-slate-700 py-4">Bil.</TableHead>
+                                <TableHead className="min-w-[350px] font-semibold text-slate-700 py-4">Maklumat Program</TableHead>
                                 <TableHead className="w-[130px] text-center font-semibold text-slate-700 py-4">Peringkat</TableHead>
                                 <TableHead className="w-[150px] text-center font-semibold text-slate-700 py-4">Tarikh Aktiviti</TableHead>
                                 <TableHead className="w-[100px] text-center font-semibold text-slate-700 py-4">Lokasi</TableHead>
-                                <TableHead className="w-[250px] font-bold text-slate-700 py-4">Sasaran</TableHead>
-                                <TableHead className="w-[100px] text-right font-semibold text-slate-700 py-4 pr-6">Jum.</TableHead>
+                                <TableHead className="w-[180px] font-bold text-slate-700 py-4">Sasaran</TableHead>
+                                <TableHead className="w-[100px] text-right font-semibold text-slate-700 py-4 pr-6">Jumlah</TableHead>
+                                <TableHead className="w-[140px] text-center font-semibold text-slate-700 py-4">Tindakan</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {loading ? (
-                                <TableRow><TableCell colSpan={7} className="text-center py-12 text-slate-500">Memuatkan...</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={8} className="text-center py-12 text-slate-500">Memuatkan...</TableCell></TableRow>
                             ) : programs.length === 0 ? (
-                                <TableRow><TableCell colSpan={7} className="text-center py-12 text-slate-400">Tiada aktiviti dijumpai.</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={8} className="text-center py-12 text-slate-400">Tiada aktiviti dijumpai.</TableCell></TableRow>
                             ) : (
                                 programs.map((p, index) => (
                                     <TableRow key={p._id} className="hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0">
@@ -432,6 +535,39 @@ function ProgramReportsPage() {
                                         <TableCell className="text-right align-top py-4 pr-6">
                                             <span className="font-bold text-slate-900 bg-slate-100 px-3 py-1 rounded-md border border-slate-200 shadow-sm">{p.participantCount}</span>
                                         </TableCell>
+
+                                        {/* ✅ ACTION BUTTONS */}
+                                        <TableCell className="text-center align-top py-4">
+                                            <div className="flex items-center justify-center gap-1.5">
+                                                <Button
+                                                    size="icon"
+                                                    variant="ghost"
+                                                    className="h-8 w-8 text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                                    onClick={() => openViewModal(p)}
+                                                    title="Lihat"
+                                                >
+                                                    <Eye className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    size="icon"
+                                                    variant="ghost"
+                                                    className="h-8 w-8 text-slate-500 hover:text-orange-600 hover:bg-orange-50 transition-colors"
+                                                    onClick={() => openEditModal(p)}
+                                                    title="Kemaskini"
+                                                >
+                                                    <Pencil className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    size="icon"
+                                                    variant="ghost"
+                                                    className="h-8 w-8 text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                                    onClick={() => handleDelete(p._id)}
+                                                    title="Padam"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </TableCell>
                                     </TableRow>
                                 ))
                             )}
@@ -444,8 +580,12 @@ function ProgramReportsPage() {
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                 <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 overflow-hidden border-0 shadow-2xl sm:rounded-xl">
                     <DialogHeader className="px-8 py-6 border-b bg-white sticky top-0 z-10">
-                        <DialogTitle className="text-xl font-bold text-slate-900">Lapor Aktiviti Baru</DialogTitle>
-                        <DialogDescription>Isi maklumat program dan tandakan lokasi di peta.</DialogDescription>
+                        <DialogTitle className="text-xl font-bold text-slate-900">
+                            {modalMode === "create" ? "Lapor Aktiviti Baru" : modalMode === "edit" ? "Kemaskini Aktiviti" : "Maklumat Aktiviti"}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {modalMode === "view" ? "Paparan maklumat terperinci aktiviti." : "Isi maklumat program dan tandakan lokasi di peta."}
+                        </DialogDescription>
                     </DialogHeader>
                     <div className="flex-1 overflow-y-auto p-8 grid grid-cols-1 lg:grid-cols-2 gap-10 bg-slate-50/50">
 
@@ -455,18 +595,19 @@ function ProgramReportsPage() {
                             {/* 1. SEKSYEN DASAR */}
                             <div className="bg-blue-50 p-5 rounded-xl border border-blue-100 shadow-sm space-y-4">
                                 <h3 className="font-semibold text-blue-800 border-b border-blue-200 pb-2 mb-2 flex items-center gap-2">
-                                    <Target className="w-4 h-4" /> Pautan Dasar STEM (Wajib)
+                                    <Target className="w-4 h-4" /> Pautan Dasar STEM {!isReadOnly && <span className="text-red-500 text-xs">(Wajib)</span>}
                                 </h3>
                                 <div className="space-y-3">
                                     <div className="space-y-1">
                                         <Label className="text-blue-900 text-xs uppercase font-bold tracking-wide">
-                                            Pilih Teras <span className="text-red-500">*</span>
+                                            Pilih Teras {!isReadOnly && <span className="text-red-500">*</span>}
                                         </Label>
                                         <Select
                                             value={formData.teras}
                                             onValueChange={(val) => setFormData({ ...formData, teras: val, strategy: "" })}
+                                            disabled={isReadOnly}
                                         >
-                                            <SelectTrigger className={`bg-white border-blue-200 ${!formData.teras && 'border-red-300 border-2'}`}>
+                                            <SelectTrigger className={`bg-white border-blue-200 ${!formData.teras && !isReadOnly && 'border-red-300 border-2'}`}>
                                                 <SelectValue placeholder="Pilih Teras Strategik" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -477,8 +618,14 @@ function ProgramReportsPage() {
 
                                     <div className="space-y-1">
                                         <Label className="text-blue-900 text-xs uppercase font-bold tracking-wide">Pilih Inisiatif Strategik</Label>
-                                        <Select value={formData.strategy} onValueChange={(val) => setFormData({ ...formData, strategy: val })} disabled={!formData.teras}>
-                                            <SelectTrigger className="bg-white border-blue-200"><SelectValue placeholder={!formData.teras ? "Sila pilih teras dahulu" : "Pilih Strategi"} /></SelectTrigger>
+                                        <Select
+                                            value={formData.strategy}
+                                            onValueChange={(val) => setFormData({ ...formData, strategy: val })}
+                                            disabled={!formData.teras || isReadOnly}
+                                        >
+                                            <SelectTrigger className="bg-white border-blue-200">
+                                                <SelectValue placeholder={!formData.teras ? "Sila pilih teras dahulu" : "Pilih Strategi"} />
+                                            </SelectTrigger>
                                             <SelectContent>
                                                 {filteredStrategies.map(s => <SelectItem key={s._id} value={s._id}>{s.name}</SelectItem>)}
                                             </SelectContent>
@@ -490,46 +637,64 @@ function ProgramReportsPage() {
                             {/* 2. MAKLUMAT PROGRAM */}
                             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
                                 <Label className="text-slate-700">
-                                    Tajuk Program <span className="text-red-500">*</span>
+                                    Tajuk Program {!isReadOnly && <span className="text-red-500">*</span>}
                                 </Label>
                                 <Input
                                     name="title"
                                     value={formData.title}
                                     onChange={handleChange}
                                     placeholder="Contoh: Karnival STEM"
-                                    className={`bg-slate-50 border-slate-200 focus:bg-white ${!formData.title && 'border-red-300 border-2'}`}
+                                    disabled={isReadOnly}
+                                    className={`bg-slate-50 border-slate-200 focus:bg-white ${!formData.title && !isReadOnly && 'border-red-300 border-2'}`}
                                 />
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <Label>Tarikh Mula <span className="text-red-500">*</span></Label>
+                                        <Label>Tarikh Mula {!isReadOnly && <span className="text-red-500">*</span>}</Label>
                                         <Input
                                             type="date"
                                             name="dateStart"
                                             value={formData.dateStart}
                                             onChange={handleChange}
-                                            className={`bg-slate-50 ${!formData.dateStart && 'border-red-300 border-2'}`}
+                                            disabled={isReadOnly}
+                                            className={`bg-slate-50 ${!formData.dateStart && !isReadOnly && 'border-red-300 border-2'}`}
                                         />
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Tarikh Tamat</Label>
-                                        <Input type="date" name="dateEnd" value={formData.dateEnd} onChange={handleChange} className="bg-slate-50" />
+                                        <Input
+                                            type="date"
+                                            name="dateEnd"
+                                            value={formData.dateEnd}
+                                            onChange={handleChange}
+                                            disabled={isReadOnly}
+                                            className="bg-slate-50"
+                                        />
                                     </div>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>Peringkat <span className="text-red-500">*</span></Label>
-                                    <Select value={formData.programLevel} onValueChange={(val) => setFormData({ ...formData, programLevel: val })}>
-                                        <SelectTrigger className={`bg-slate-50 ${!formData.programLevel && 'border-red-300 border-2'}`}><SelectValue /></SelectTrigger>
-                                        <SelectContent>{levelOptions.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
+                                    <Label>Peringkat {!isReadOnly && <span className="text-red-500">*</span>}</Label>
+                                    <Select
+                                        value={formData.programLevel}
+                                        onValueChange={(val) => setFormData({ ...formData, programLevel: val })}
+                                        disabled={isReadOnly}
+                                    >
+                                        <SelectTrigger className={`bg-slate-50 ${!formData.programLevel && !isReadOnly && 'border-red-300 border-2'}`}>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {levelOptions.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                                        </SelectContent>
                                     </Select>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>Penganjur <span className="text-red-500">*</span></Label>
+                                    <Label>Penganjur {!isReadOnly && <span className="text-red-500">*</span>}</Label>
                                     <Input
                                         name="organizerName"
                                         value={formData.organizerName}
                                         onChange={handleChange}
                                         placeholder="Nama penganjur"
-                                        className={`bg-slate-50 ${!formData.organizerName && 'border-red-300 border-2'}`}
+                                        disabled={isReadOnly}
+                                        className={`bg-slate-50 ${!formData.organizerName && !isReadOnly && 'border-red-300 border-2'}`}
                                     />
                                 </div>
                             </div>
@@ -538,23 +703,27 @@ function ProgramReportsPage() {
                             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
                                 <div className="flex justify-between border-b pb-2">
                                     <Label className="font-bold text-blue-800">
-                                        Peserta <span className="text-red-500">*</span>
+                                        Peserta {!isReadOnly && <span className="text-red-500">*</span>}
                                     </Label>
                                     <Badge className="bg-blue-600">Total: {formData.participantCount}</Badge>
                                 </div>
-                                <p className="text-xs text-slate-500 -mt-2">Pilih sekurang-kurangnya satu kumpulan sasaran</p>
+                                {!isReadOnly && <p className="text-xs text-slate-500 -mt-2">Pilih sekurang-kurangnya satu kumpulan sasaran</p>}
                                 <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
                                     {targetOptions.map(opt => {
                                         const isChecked = formData.targetGroups.some(t => t.group === opt);
                                         return (
                                             <div key={opt} className={`flex justify-between gap-4 p-3 rounded-lg border ${isChecked ? 'bg-blue-50 border-blue-200' : 'bg-white'}`}>
                                                 <div className="flex items-center space-x-3">
-                                                    <Checkbox checked={isChecked} onCheckedChange={(c) => handleTargetCheck(opt, c)} />
+                                                    <Checkbox
+                                                        checked={isChecked}
+                                                        onCheckedChange={(c) => handleTargetCheck(opt, c)}
+                                                        disabled={isReadOnly}
+                                                    />
                                                     <label className="text-sm font-medium">{opt}</label>
                                                 </div>
                                                 <Input
                                                     type="number"
-                                                    disabled={!isChecked}
+                                                    disabled={!isChecked || isReadOnly}
                                                     placeholder="0"
                                                     className="w-24 h-9 text-right"
                                                     value={formData.targetGroups.find(t => t.group === opt)?.count || ""}
@@ -570,31 +739,56 @@ function ProgramReportsPage() {
                         {/* Kanan: Map */}
                         <div className="space-y-6 flex flex-col h-full">
                             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4 flex-1 flex flex-col">
-                                <Label>Lokasi / Venue <span className="text-red-500">*</span></Label>
+                                <Label>Lokasi / Venue {!isReadOnly && <span className="text-red-500">*</span>}</Label>
                                 <Input
                                     name="venue"
                                     value={formData.venue}
                                     onChange={handleChange}
                                     placeholder="Cari lokasi..."
-                                    className={`bg-slate-50 ${!formData.venue && 'border-red-300 border-2'}`}
+                                    disabled={isReadOnly}
+                                    className={`bg-slate-50 ${!formData.venue && !isReadOnly && 'border-red-300 border-2'}`}
                                 />
                                 <div className="flex-1 min-h-[300px] border-2 border-slate-100 rounded-lg overflow-hidden relative">
                                     <MapContainer center={[formData.lat, formData.lng]} zoom={10} style={{ height: "100%", width: "100%" }}>
                                         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='© OpenStreetMap' />
-                                        <SearchField onLocationFound={handleSearchLocation} />
-                                        <LocationPicker position={{ lat: formData.lat, lng: formData.lng }} setPosition={(pos) => setFormData({ ...formData, lat: pos.lat, lng: pos.lng })} />
+                                        {!isReadOnly && <SearchField onLocationFound={handleSearchLocation} />}
+                                        <LocationPicker
+                                            position={{ lat: formData.lat, lng: formData.lng }}
+                                            setPosition={(pos) => setFormData({ ...formData, lat: pos.lat, lng: pos.lng })}
+                                            readOnly={isReadOnly}
+                                        />
                                     </MapContainer>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>Naratif Ringkas (Pilihan)</Label>
+                                    <div className="flex justify-between items-center">
+                                        <Label>Naratif Ringkas (Pilihan)</Label>
+                                        <span className={`text-xs font-medium ${formData.description.trim().split(/\s+/).filter(w => w).length > 20
+                                            ? 'text-red-600'
+                                            : 'text-slate-500'
+                                            }`}>
+                                            {formData.description.trim() === ""
+                                                ? "0"
+                                                : formData.description.trim().split(/\s+/).filter(w => w).length
+                                            }/20 perkataan
+                                        </span>
+                                    </div>
                                     <Textarea
                                         name="description"
                                         value={formData.description}
                                         onChange={handleChange}
                                         rows={3}
-                                        placeholder="Naratif ringkas program (10-15 patah perkataan sahaja)..."
-                                        className="bg-slate-50 resize-none"
+                                        placeholder="Naratif ringkas program (maksimum 20 patah perkataan)..."
+                                        disabled={isReadOnly}
+                                        className={`bg-slate-50 resize-none ${formData.description.trim().split(/\s+/).filter(w => w).length > 20
+                                            ? 'border-red-300 border-2'
+                                            : ''
+                                            }`}
                                     />
+                                    {formData.description.trim().split(/\s+/).filter(w => w).length > 20 && (
+                                        <p className="text-xs text-red-600 mt-1">
+                                            ⚠️ Melebihi had 20 patah perkataan
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -607,22 +801,24 @@ function ProgramReportsPage() {
                             onClick={() => setIsModalOpen(false)}
                             disabled={isSaving}
                         >
-                            Batal
+                            {isReadOnly ? "Tutup" : "Batal"}
                         </Button>
-                        <Button
-                            onClick={handleSubmit}
-                            disabled={isSaving}
-                            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed min-w-[120px]"
-                        >
-                            {isSaving ? (
-                                <span className="flex items-center gap-2">
-                                    <span className="animate-spin">⏳</span>
-                                    Menyimpan...
-                                </span>
-                            ) : (
-                                "Simpan"
-                            )}
-                        </Button>
+                        {!isReadOnly && (
+                            <Button
+                                onClick={handleSubmit}
+                                disabled={isSaving}
+                                className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed min-w-[120px]"
+                            >
+                                {isSaving ? (
+                                    <span className="flex items-center gap-2">
+                                        <span className="animate-spin">⏳</span>
+                                        Menyimpan...
+                                    </span>
+                                ) : (
+                                    "Simpan"
+                                )}
+                            </Button>
+                        )}
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

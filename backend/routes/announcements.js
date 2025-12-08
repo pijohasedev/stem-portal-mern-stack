@@ -108,4 +108,42 @@ router.put('/read-all', auth, async (req, res) => {
     }
 });
 
+// 6. ADMIN: KEMASKINI PENGUMUMAN (EDIT)
+router.put('/:id', auth, async (req, res) => {
+    try {
+        if (req.user.role !== 'Admin') return res.status(403).json({ message: "Akses dinafikan." });
+
+        const { title, message, targetRoles, priority } = req.body;
+
+        const updatedAnnouncement = await Announcement.findByIdAndUpdate(
+            req.params.id,
+            { title, message, targetRoles, priority },
+            { new: true } // Return data yang baru
+        );
+
+        if (!updatedAnnouncement) return res.status(404).json({ message: "Pengumuman tidak dijumpai." });
+
+        res.json(updatedAnnouncement);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Gagal mengemaskini pengumuman." });
+    }
+});
+
+// 7. ADMIN: PADAM PENGUMUMAN (DELETE)
+router.delete('/:id', auth, async (req, res) => {
+    try {
+        if (req.user.role !== 'Admin') return res.status(403).json({ message: "Akses dinafikan." });
+
+        const result = await Announcement.findByIdAndDelete(req.params.id);
+
+        if (!result) return res.status(404).json({ message: "Pengumuman tidak dijumpai." });
+
+        res.json({ message: "Pengumuman berjaya dipadam." });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Gagal memadam pengumuman." });
+    }
+});
+
 module.exports = router;
