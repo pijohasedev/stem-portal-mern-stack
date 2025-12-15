@@ -85,6 +85,12 @@ app.use('/api/announcements', announcementRoutes);
 app.use('/api/programs', require('./routes/programs'));
 
 
+// --- LETAK KOD INI DI SINI ---
+app.get('/health', (req, res) => {
+  res.status(200).send('Server is awake! ☕');
+});
+// -----------------------------
+
 // ## 6. START THE SERVER (MUST BE LAST) ##
 app.listen(PORT, () => {
   console.log(`✅ Server is running on port ${PORT} in ${process.env.NODE_ENV} mode`);
