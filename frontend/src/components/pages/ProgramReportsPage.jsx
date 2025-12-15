@@ -435,7 +435,7 @@ function ProgramReportsPage() {
         <div className="p-6 space-y-6 bg-slate-50 min-h-screen">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-900">Jurnal Aktiviti STEM</h1>
+                    <h1 className="text-3xl font-bold tracking-tight text-slate-900">Pelaporan Inisiatif Pendidikan STEM</h1>
                     <p className="text-slate-600">Rekod pelaksanaan program dan pemetaan lokasi.</p>
                 </div>
 
@@ -595,7 +595,7 @@ function ProgramReportsPage() {
                             {/* 1. SEKSYEN DASAR */}
                             <div className="bg-blue-50 p-5 rounded-xl border border-blue-100 shadow-sm space-y-4">
                                 <h3 className="font-semibold text-blue-800 border-b border-blue-200 pb-2 mb-2 flex items-center gap-2">
-                                    <Target className="w-4 h-4" /> Pautan Dasar STEM {!isReadOnly && <span className="text-red-500 text-xs">(Wajib)</span>}
+                                    <Target className="w-4 h-4" /> Pelan Strategik Pendidikan STEM {!isReadOnly && <span className="text-red-500 text-xs">(Wajib)</span>}
                                 </h3>
                                 <div className="space-y-3">
                                     <div className="space-y-1">

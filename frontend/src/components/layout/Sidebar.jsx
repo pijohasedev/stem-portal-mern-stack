@@ -142,7 +142,7 @@ function Sidebar({ isOpen, onLogout, userRole, user }) {
                 )}
 
                 <SectionLabel isCollapsed={isCollapsed}>Pelaporan Aktiviti</SectionLabel>
-                <SidebarLink to="/programs" icon={BookOpen} isCollapsed={isCollapsed}>Aktiviti STEM</SidebarLink>
+                <SidebarLink to="/programs" icon={BookOpen} isCollapsed={isCollapsed}>Inisiatif STEM</SidebarLink>
 
                 {/* C. PENGURUSAN ENROLMEN (PPD & NEGERI SAHAJA) */}
                 {(showEnrollmentVerify || showEnrollmentDashboard || showEnrollmentImport) && (
