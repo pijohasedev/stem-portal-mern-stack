@@ -76,7 +76,7 @@ function ProgramReportsPage() {
 
     const [formData, setFormData] = useState(initialFormState);
 
-    const STEM_POLICY_ID = "690afaa7f1255ad854c7be11";
+    const STEM_POLICY_ID = import.meta.env.VITE_STEM_POLICY_ID;
 
     useEffect(() => {
         const initData = async () => {
