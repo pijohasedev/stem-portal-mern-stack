@@ -107,7 +107,7 @@ function Sidebar({ isOpen, onLogout, userRole, user }) {
                     </div>
                     <div className={cn("flex flex-col overflow-hidden transition-all duration-300", isCollapsed && "w-0 opacity-0")}>
                         <h1 className="text-lg font-bold text-slate-800 dark:text-white whitespace-nowrap leading-tight">STEM Portal</h1>
-                        <span className="text-[10px] text-slate-400 font-medium tracking-wide">KPM MALAYSIA</span>
+                        <span className="text-[10px] text-slate-400 font-medium tracking-wide">KEMENTERIAN PENDIDIKAN</span>
                     </div>
                 </div>
             </div>
