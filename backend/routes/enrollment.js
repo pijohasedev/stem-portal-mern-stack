@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const express = require('express');
 const router = express.Router();
 const SchoolEnrollment = require('../models/SchoolEnrollment');
@@ -45,6 +46,69 @@ router.get('/my-district', auth, async (req, res) => {
         res.status(500).json({ message: "Server Error" });
     }
 });
+
+// 1.5 SENARAI SEKOLAH UNTUK DISEMAK (ADMIN & PPD)
+// Route: GET /api/enrollment/verify?year=2025&month=10&state=...&ppd=...
+router.get('/verify', auth, async (req, res) => {
+    try {
+        const { year, month, state, ppd } = req.query;
+
+        console.log("--- DEBUG /verify ---");
+        console.log("User Role:", req.user.role);
+        console.log("Query Params:", req.query);
+
+        let query = {
+            year: parseInt(year) || new Date().getFullYear(),
+            month: parseInt(month) || (new Date().getMonth() + 1)
+        };
+
+        const userRole = (req.user.role || "").toLowerCase();
+
+        if (userRole === 'ppd') {
+            // --- JIKA PPD ---
+            let userPpdId = req.user.ppd;
+
+            // Fallback jika token tak ada PPD ID
+            if (!userPpdId) {
+                const userFull = await User.findById(req.user.id);
+                userPpdId = userFull.ppd;
+            }
+
+            if (!userPpdId) {
+                return res.status(403).json({ message: "Akaun anda tiada PPD yang sah." });
+            }
+
+            console.log("Filtering for PPD User:", userPpdId);
+            query.ppd = userPpdId;
+
+        } else if (['admin', 'negeri', 'bahagian'].includes(userRole)) {
+            // --- JIKA ADMIN / JPN ---
+            if (ppd && ppd !== 'ALL' && ppd !== 'undefined') {
+                query.ppd = ppd;
+            }
+            if (state && state !== 'ALL' && state !== 'undefined') {
+                query.state = new mongoose.Types.ObjectId(state);
+            }
+        }
+
+        console.log("Final Mongo Query:", query);
+
+        const schools = await SchoolEnrollment.find(query)
+
+            .populate('ppd', 'name')
+            .populate('state', 'name')
+            .sort({ 'ppd': 1, 'schoolName': 1 }); // Susun ikut PPD, kemudian Nama Sekolah
+
+        console.log(`Jumpa ${schools.length} rekod.`);
+        res.json(schools);
+
+    } catch (error) {
+        console.error("Error fetching verification list:", error);
+        res.status(500).json({ message: "Server error." });
+    }
+});
+
+
 
 // 2. KEMASKINI & SAHKAN DATA (PPD ACTION) - DENGAN KAWALAN TARIKH
 router.put('/:id/verify', auth, async (req, res) => {
@@ -221,17 +285,29 @@ router.post('/import', auth, async (req, res) => {
 });
 
 // 5. JPN - RINGKASAN STATUS MENGIKUT PPD
-// Route: GET /api/enrollment/summary?year=2024&month=10
+// Route: GET /api/enrollment/summary?year=2024&month=10&state=691...
 router.get('/summary', auth, async (req, res) => {
     try {
-        const { year, month } = req.query;
+        const { year, month, state } = req.query; // ✅ Baca 'state' dari query
         const targetYear = parseInt(year) || new Date().getFullYear();
         const targetMonth = parseInt(month) || (new Date().getMonth() + 1);
+
+        // 1. Bina objek carian (Match Query)
+        let matchQuery = {
+            year: targetYear,
+            month: targetMonth
+        };
+
+        // ✅ 2. Jika ada filter State, tambah ke dalam carian
+        // Penting: Dalam aggregate, kita mesti tukar string ID kepada ObjectId secara manual
+        if (state) {
+            matchQuery.state = new mongoose.Types.ObjectId(state);
+        }
 
         // Aggregate data untuk dapatkan statistik per PPD
         const summary = await SchoolEnrollment.aggregate([
             {
-                $match: { year: targetYear, month: targetMonth }
+                $match: matchQuery // ✅ Guna objek yang dah dibina tadi
             },
             {
                 $group: {
@@ -251,7 +327,7 @@ router.get('/summary', auth, async (req, res) => {
             },
             {
                 $lookup: {
-                    from: "ppds", // Nama collection PPD dalam MongoDB (biasanya lowercase plural)
+                    from: "ppds", // Nama collection PPD dalam MongoDB
                     localField: "_id",
                     foreignField: "_id",
                     as: "ppdInfo"

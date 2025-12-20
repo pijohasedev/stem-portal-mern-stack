@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarDays, Clock, Filter, MapPin } from "lucide-react"; // Tambah Ikon Filter & MapPin
+import { CalendarDays, Clock, Filter, MapPin } from "lucide-react";
 import { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import EnrollmentVerificationTable from './EnrollmentVerificationTable';
@@ -25,14 +25,29 @@ function EnrollmentVerificationPage() {
     const [locations, setLocations] = useState({ states: [], ppds: [] });
     const [filterState, setFilterState] = useState("ALL");
     const [filterPPD, setFilterPPD] = useState("ALL");
+    const [isAdmin, setIsAdmin] = useState(false); // ✅ State untuk check Admin
 
-    // 1. Load Locations (Sekali Sahaja)
+    // 1. Check User Role & Load Locations (Sekali Sahaja)
     useEffect(() => {
-        api.get('/enrollment/options/locations', {
-            headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
-        }).then(res => {
-            setLocations(res.data);
-        }).catch(console.error);
+        try {
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                // ✅ Check jika role adalah Admin
+                if (user.role === 'Admin') {
+                    setIsAdmin(true);
+
+                    // Hanya fetch lokasi jika Admin
+                    api.get('/enrollment/options/locations', {
+                        headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+                    }).then(res => {
+                        setLocations(res.data);
+                    }).catch(console.error);
+                }
+            }
+        } catch (e) {
+            console.error("Error reading user role", e);
+        }
     }, []);
 
     // 2. Check Session (Bila Tahun Berubah)
@@ -79,7 +94,33 @@ function EnrollmentVerificationPage() {
         setLoading(true);
         try {
             const token = localStorage.getItem('authToken');
-            const res = await api.get(`/enrollment/my-district?year=${year}&month=${month}`, {
+
+            // ✅ Logik Backend Filter (Admin sahaja perlu hantar manual filter)
+            // PPD/JPN automatik ditapis oleh backend (req.user)
+            let url = `/enrollment/my-district?year=${year}&month=${month}`;
+
+            // Jika Admin & ada filter dipilih, tambah parameter
+            if (isAdmin) {
+                // Untuk Admin, 'my-district' mungkin tak sesuai, 
+                // sebaiknya backend sokong 'verify' route yang lebih umum.
+                // Tapi jika guna route sama, pastikan backend baca query param.
+
+                // NOTA: Route backend '/verify' yang kita bincang tadi menyokong ?ppd=...
+                // Jadi kita guna route '/verify' di sini (bukan my-district)
+                url = `/enrollment/verify?year=${year}&month=${month}`;
+
+                if (filterPPD !== "ALL") {
+                    url += `&ppd=${filterPPD}`;
+                } else if (filterState !== "ALL") {
+                    // Jika backend sokong filter by state
+                    url += `&state=${filterState}`;
+                }
+            } else {
+                // Untuk PPD, guna route verify juga (backend akan auto filter)
+                url = `/enrollment/verify?year=${year}&month=${month}`;
+            }
+
+            const res = await api.get(url, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setSchools(res.data);
@@ -90,9 +131,11 @@ function EnrollmentVerificationPage() {
         }
     };
 
+    // Reload data bila filter atau masa berubah
     useEffect(() => {
         fetchRecords();
-    }, [year, month]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [year, month, filterState, filterPPD]); // ✅ Tambah dependency filter
 
     // --- HANDLERS ---
     const handleEditClick = (school) => {
@@ -117,16 +160,30 @@ function EnrollmentVerificationPage() {
         return dateObj ? dateObj.toLocaleDateString('ms-MY', { day: '2-digit', month: 'long', year: 'numeric' }) : '-';
     };
 
-    // --- LOGIK FILTER ---
+    // --- LOGIK FILTER CLIENT-SIDE (BACKUP) ---
+    // Walaupun backend dah filter, client-side filter ini berguna 
+    // untuk respon pantas dropdown Admin tanpa reload
     const filteredSchools = schools.filter(item => {
-        // Filter State (Check ID)
-        if (filterState !== "ALL" && item.state !== filterState) return false;
+        // Jika bukan admin, tak perlu filter tambahan (sebab backend dah handle)
+        if (!isAdmin) return true;
 
-        // Filter PPD (Handle populated object)
-        if (filterPPD !== "ALL") {
-            const ppdId = item.ppd?._id || item.ppd;
-            if (ppdId !== filterPPD) return false;
+        // 1. Filter Negeri
+        if (filterState !== "ALL") {
+            // ✅ FIX: Ambil ID walaupun ia adalah objek (populated)
+            const itemStateId = item.state?._id || item.state;
+
+            // Bandingkan ID dengan Filter
+            if (itemStateId !== filterState) return false;
         }
+
+        // 2. Filter PPD
+        if (filterPPD !== "ALL") {
+            // ✅ FIX: Ambil ID walaupun ia adalah objek (populated)
+            const itemPpdId = item.ppd?._id || item.ppd;
+
+            if (itemPpdId !== filterPPD) return false;
+        }
+
         return true;
     });
 
@@ -146,43 +203,45 @@ function EnrollmentVerificationPage() {
 
                 <div className="flex flex-wrap gap-3 items-center w-full xl:w-auto justify-end">
 
-                    {/* BAR FILTER (Negeri & PPD) */}
-                    <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-1.5 rounded-lg border shadow-sm">
-                        <Filter className="h-4 w-4 text-slate-500 ml-2 hidden sm:block" />
+                    {/* ✅ HANYA TUNJUK JIKA ADMIN */}
+                    {isAdmin && (
+                        <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-1.5 rounded-lg border shadow-sm">
+                            <Filter className="h-4 w-4 text-slate-500 ml-2 hidden sm:block" />
 
-                        {/* State Filter */}
-                        <Select value={filterState} onValueChange={(val) => { setFilterState(val); setFilterPPD("ALL"); }}>
-                            <SelectTrigger className="w-[140px] sm:w-[180px] border-none shadow-none bg-transparent focus:ring-0 h-8 text-xs sm:text-sm">
-                                <SelectValue placeholder="Semua Negeri" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="ALL">Semua Negeri</SelectItem>
-                                {locations.states.map(s => (
-                                    <SelectItem key={s._id} value={s._id}>{s.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            {/* State Filter */}
+                            <Select value={filterState} onValueChange={(val) => { setFilterState(val); setFilterPPD("ALL"); }}>
+                                <SelectTrigger className="w-[140px] sm:w-[180px] border-none shadow-none bg-transparent focus:ring-0 h-8 text-xs sm:text-sm">
+                                    <SelectValue placeholder="Semua Negeri" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ALL">Semua Negeri</SelectItem>
+                                    {locations.states.map(s => (
+                                        <SelectItem key={s._id} value={s._id}>{s.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
 
-                        <div className="h-4 w-px bg-slate-200 dark:bg-slate-700"></div>
+                            <div className="h-4 w-px bg-slate-200 dark:bg-slate-700"></div>
 
-                        {/* PPD Filter */}
-                        <Select value={filterPPD} onValueChange={setFilterPPD}>
-                            <SelectTrigger className="w-[140px] sm:w-[220px] border-none shadow-none bg-transparent focus:ring-0 h-8 text-xs sm:text-sm">
-                                <div className="flex items-center gap-2 truncate">
-                                    <MapPin className="h-3 w-3 text-muted-foreground hidden sm:block" />
-                                    <SelectValue placeholder="Semua PPD" />
-                                </div>
-                            </SelectTrigger>
-                            <SelectContent className="max-h-[300px]">
-                                <SelectItem value="ALL">Semua PPD</SelectItem>
-                                {filteredPPDOptions.map(p => (
-                                    <SelectItem key={p._id} value={p._id}>{p.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                            {/* PPD Filter */}
+                            <Select value={filterPPD} onValueChange={setFilterPPD}>
+                                <SelectTrigger className="w-[140px] sm:w-[220px] border-none shadow-none bg-transparent focus:ring-0 h-8 text-xs sm:text-sm">
+                                    <div className="flex items-center gap-2 truncate">
+                                        <MapPin className="h-3 w-3 text-muted-foreground hidden sm:block" />
+                                        <SelectValue placeholder="Semua PPD" />
+                                    </div>
+                                </SelectTrigger>
+                                <SelectContent className="max-h-[300px]">
+                                    <SelectItem value="ALL">Semua PPD</SelectItem>
+                                    {filteredPPDOptions.map(p => (
+                                        <SelectItem key={p._id} value={p._id}>{p.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
 
-                    {/* KAWALAN MASA (Month/Year) */}
+                    {/* KAWALAN MASA (Month/Year) - Semua Role boleh nampak */}
                     <div className="flex items-center gap-2">
                         <Select value={month} onValueChange={setMonth}>
                             <SelectTrigger className="w-[110px]"><SelectValue /></SelectTrigger>
@@ -236,7 +295,7 @@ function EnrollmentVerificationPage() {
                         <div className="p-8 text-center">Memuatkan data...</div>
                     ) : filteredSchools.length > 0 ? (
                         <EnrollmentVerificationTable
-                            schools={filteredSchools} // Gunakan filteredSchools
+                            schools={filteredSchools}
                             onEdit={handleEditClick}
                             readOnly={!isSessionOpen}
                         />

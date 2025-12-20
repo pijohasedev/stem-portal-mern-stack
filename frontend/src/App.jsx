@@ -3,8 +3,12 @@ import AppLayout from "@/components/layout/AppLayout";
 import { useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
+// --- Import Security Guard (WAJIB ADA) ---
+import ProtectedRoute from "@/components/ProtectedRoute";
+
 // --- Import Halaman ---
 import AllInitiatives from "@/components/pages/AllInitiatives";
+import ChangePasswordPage from "@/components/pages/ChangePasswordPage"; // Halaman Tukar Password
 import DashboardOverview from "@/components/pages/DashboardOverview";
 import EditReport from "@/components/pages/EditReport";
 import LoginPage from "@/components/pages/LoginPage";
@@ -25,12 +29,14 @@ import EnrollmentVerificationPage from "@/components/pages/EnrollmentVerificatio
 import JPNEnrollmentDashboard from "@/components/pages/JPNEnrollmentDashboard";
 import KPMEnrollmentDashboard from "@/components/pages/KPMEnrollmentDashboard";
 
+// --- Import Modul Program ---
 import ProgramReportsPage from "@/components/pages/ProgramReportsPage";
 
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // 1. Semakan sesi pengguna semasa reload page
   useEffect(() => {
     const verifyUser = async () => {
       const token = localStorage.getItem("authToken");
@@ -40,11 +46,14 @@ function App() {
           const res = await api.get("/users/me");
           setUser(res.data);
           localStorage.setItem("user", JSON.stringify(res.data));
+
+          // ✅ Kemaskini status password setiap kali reload
+          localStorage.setItem("mustChangePassword", res.data.mustChangePassword);
+
         } catch (error) {
           console.error("Sesi tidak sah:", error.message);
           setUser(null);
-          localStorage.removeItem("authToken");
-          localStorage.removeItem("user");
+          localStorage.clear(); // Bersihkan semua jika token tak sah
         }
       }
       setLoading(false);
@@ -58,8 +67,7 @@ function App() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("user");
+    localStorage.clear(); // Bersihkan token & status password
     setUser(null);
   };
 
@@ -71,86 +79,112 @@ function App() {
     );
   }
 
+  // --- KUMPULAN 1: Public Routes (Belum Login) ---
   if (!user) {
     return (
       <Routes>
         <Route path="/login" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
+
+        {/* ✅ WAJIB TAMBAH DI SINI (Sebelum route *) */}
+        {/* Supaya user boleh akses page ini walaupun belum masuk Dashboard */}
+        <Route path="/change-password" element={<ChangePasswordPage />} />
+
+        {/* Route Catch-all mesti paling bawah */}
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
     );
   }
 
-  // --- Logik Role (Diperbetulkan) ---
+  // --- Logik Role ---
   const role = (user.role || "").toLowerCase();
-
   const isAdmin = role === "admin";
   const isPPD = role === "ppd";
-  const isUser = role === "user"; // ✅ DITAMBAH: Definisi isUser
-  const isNegeri = role === "negeri"; // JPN sebenar
-  const isBahagian = role === "bahagian"; // Kementerian/Bahagian Khas
+  const isUser = role === "user";
+  const isNegeri = role === "negeri";
+  const isBahagian = role === "bahagian";
 
-  // Kumpulan Gabungan
-  // isMonitorLegacy merangkumi Admin, JPN, Bahagian untuk modul lama
+  // Kumpulan Akses
   const isMonitorLegacy = isAdmin || isNegeri || isBahagian;
-
-  // isReporter merangkumi sesiapa yang perlu hantar laporan inisiatif
   const isReporter = isPPD || isUser || isNegeri || isBahagian;
 
   return (
+    // ✅ AppLayout dibungkus di luar ProtectedRoute supaya Navbar sentiasa ada
+    // ATAU anda boleh letak ProtectedRoute di dalam AppLayout. 
+    // Di sini saya bungkus AppLayout di dalam ProtectedRoute untuk keselamatan maksimum.
+
     <AppLayout onLogout={handleLogout} userRole={user.role} user={user}>
       <Routes>
+
+        {/* --- KUMPULAN 2: Route Khas Tukar Password --- */}
+        {/* Route ini MESTI dilindungi tapi benarkan user "mustChangePassword" masuk */}
+        <Route
+          path="/change-password"
+          element={
+            <ProtectedRoute>
+              <ChangePasswordPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* --- KUMPULAN 3: Protected Routes (Mesti Dah Tukar Password) --- */}
+
         {/* 1. Dashboard Utama */}
         <Route
           path="/"
-          element={isAdmin ? <DashboardOverview /> : <OwnerDashboard />}
+          element={
+            <ProtectedRoute>
+              {isAdmin ? <DashboardOverview /> : <OwnerDashboard />}
+            </ProtectedRoute>
+          }
         />
 
-        {/* 2. Modul Pelaporan Inisiatif (Akses untuk semua termasuk Bahagian) */}
+        {/* 2. Modul Pelaporan Inisiatif */}
         {(isReporter || isMonitorLegacy) && (
           <>
-            <Route path="/submit-report" element={<SubmitReport />} />
-            <Route path="/report-history" element={<ReportHistory />} />
-            <Route path="/edit-report/:id" element={<EditReport />} />
-            <Route path="/report/:id" element={<ReportDetails />} />
+            <Route path="/submit-report" element={<ProtectedRoute><SubmitReport /></ProtectedRoute>} />
+            <Route path="/report-history" element={<ProtectedRoute><ReportHistory /></ProtectedRoute>} />
+            <Route path="/edit-report/:id" element={<ProtectedRoute><EditReport /></ProtectedRoute>} />
+            <Route path="/report/:id" element={<ProtectedRoute><ReportDetails /></ProtectedRoute>} />
           </>
         )}
 
         {isMonitorLegacy && (
           <>
-            <Route path="/initiatives" element={<AllInitiatives />} />
-            <Route path="/reports" element={<ReportsMonitor />} />
+            <Route path="/initiatives" element={<ProtectedRoute><AllInitiatives /></ProtectedRoute>} />
+            <Route path="/reports" element={<ProtectedRoute><ReportsMonitor /></ProtectedRoute>} />
           </>
         )}
 
         {/* 3. Modul Admin */}
         {isAdmin && (
           <>
-            <Route path="/users" element={<UserManagement />} />
-            <Route path="/planning" element={<StrategicPlanning />} />
+            <Route path="/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
+            <Route path="/planning" element={<ProtectedRoute><StrategicPlanning /></ProtectedRoute>} />
 
-            <Route path="/enrollment/import" element={<AdminEnrollmentImport />} />
-            <Route path="/enrollment/export" element={<AdminEnrollmentExport />} />
-            <Route path="/enrollment/settings" element={<EnrollmentSettingsPage />} />
-            <Route path="/enrollment/kpm-dashboard" element={<KPMEnrollmentDashboard />} />
-            <Route path="/admin/announcements" element={<AdminAnnouncementPage />} />
+            {/* Admin Enrolmen */}
+            <Route path="/enrollment/import" element={<ProtectedRoute><AdminEnrollmentImport /></ProtectedRoute>} />
+            <Route path="/enrollment/export" element={<ProtectedRoute><AdminEnrollmentExport /></ProtectedRoute>} />
+            <Route path="/enrollment/settings" element={<ProtectedRoute><EnrollmentSettingsPage /></ProtectedRoute>} />
+            <Route path="/enrollment/kpm-dashboard" element={<ProtectedRoute><KPMEnrollmentDashboard /></ProtectedRoute>} />
+            <Route path="/admin/announcements" element={<ProtectedRoute><AdminAnnouncementPage /></ProtectedRoute>} />
           </>
         )}
 
-        {/* 4. Modul Enrolmen (KHAS: PPD & NEGERI SAHAJA) */}
-        {/* Bahagian TIDAK BOLEH akses laluan ini */}
-
+        {/* 4. Modul Enrolmen (Khas PPD & Negeri) */}
         {(isPPD || isAdmin) && (
-          <Route path="/enrollment/verify" element={<EnrollmentVerificationPage />} />
+          <Route path="/enrollment/verify" element={<ProtectedRoute><EnrollmentVerificationPage /></ProtectedRoute>} />
         )}
 
         {(isNegeri || isAdmin) && (
-          <Route path="/enrollment/jpn-dashboard" element={<JPNEnrollmentDashboard />} />
+          <Route path="/enrollment/jpn-dashboard" element={<ProtectedRoute><JPNEnrollmentDashboard /></ProtectedRoute>} />
         )}
 
-        {/* Laluan 'Catch-all' */}
+        {/* 5. Modul Program Laporan Aktiviti (BARU) */}
+        <Route path="/programs" element={<ProtectedRoute><ProgramReportsPage /></ProtectedRoute>} />
+
+        {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" />} />
 
-        <Route path="/programs" element={<ProgramReportsPage />} />
       </Routes>
     </AppLayout>
   );

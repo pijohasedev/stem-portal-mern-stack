@@ -190,11 +190,16 @@ function AddUserModal({ isOpen, onClose, onUserAdded, userToEdit }) {
             role,
         };
 
+        // ✅ 1. TETAPKAN DEFAULT PASSWORD
+        const DEFAULT_PASSWORD = "STEM@Password1";
+
         if (password) {
+            // Jika admin taip sendiri password, guna yang itu
             userData.password = password;
-        } else if (!isEditMode && !password) { // Pastikan password ada untuk pengguna baru
-            Swal.fire('Ralat!', 'Kata laluan diperlukan untuk pengguna baharu.', 'error');
-            return;
+        } else if (!isEditMode) {
+            // ✅ Jika admin tak isi (kosong), guna default
+            userData.password = DEFAULT_PASSWORD;
+            userData.mustChangePassword = true; // (Optional: Pastikan backend sokong ini)
         }
 
         // ✅ PEMBETULAN: Hantar 'null' untuk $unset data lama
@@ -285,7 +290,19 @@ function AddUserModal({ isOpen, onClose, onUserAdded, userToEdit }) {
                         <div><Label htmlFor="lastName">Nama Akhir *</Label><Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} required /></div>
                     </div>
                     <div><Label htmlFor="email">Alamat E-mel *</Label><Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
-                    <div><Label htmlFor="password">Kata Laluan</Label><Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={isEditMode ? "Biar kosong untuk kekal" : "Kata Laluan Sementara *"} required={!isEditMode} /></div>
+                    <div><Label htmlFor="password">Kata Laluan</Label>
+                        <Input
+                            id="password"
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            // ✅ Ubah placeholder supaya admin tahu
+                            placeholder={isEditMode
+                                ? "Biar kosong untuk kekal"
+                                : "Biarkan kosong untuk default (STEM@Password1)"}
+                            // ✅ Buang 'required' supaya boleh submit kosong
+                            autoComplete="new-password"
+                        /></div>
 
                     {/* --- KEMAS KINI BAHAGIAN HIERARKI --- */}
                     <div>

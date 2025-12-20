@@ -10,7 +10,7 @@ import './index.css';
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
-      <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme"> {/* Wrap here */}
+      <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme"> {/* Wrap here */}
         <App />
       </ThemeProvider>
     </BrowserRouter>

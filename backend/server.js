@@ -18,6 +18,9 @@ const stateRoutes = require('./routes/states');
 const ppdRoutes = require('./routes/ppds');
 const enrollmentRoutes = require('./routes/enrollment');
 const announcementRoutes = require('./routes/announcements');
+const logsRoutes = require('./routes/logs');
+const automationRoutes = require('./routes/automation');
+
 
 // PENTING: Untuk localhost, dotenv.config() diperlukan untuk membaca .env
 // Di Render, pemboleh ubah persekitaran diinject secara automatik
@@ -83,6 +86,10 @@ app.use('/api/ppds', ppdRoutes);
 app.use('/api/enrollment', enrollmentRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/programs', require('./routes/programs'));
+app.use('/api/logs', logsRoutes);
+app.use('/api/automation', automationRoutes);
+
+
 
 
 // --- LETAK KOD INI DI SINI ---

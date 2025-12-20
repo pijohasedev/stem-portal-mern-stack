@@ -7,6 +7,13 @@ const userSchema = new Schema({
     lastName: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
+    lastLogin: { type: Date, default: null },
+    lastIp: { type: String, default: '' },
+
+    mustChangePassword: {
+        type: Boolean,
+        default: true // Default TRUE supaya user baru automatik kena tukar password
+    },
 
     role: {
         type: String,
