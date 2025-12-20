@@ -1,19 +1,43 @@
 import api from '@/api';
+import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronDownIcon, ChevronRightIcon, Eye, Pencil, Trash2, TrendingUp } from 'lucide-react';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input"; // Pastikan ada (shadcn)
+import {
+    Activity,
+    AlertCircle,
+    CheckCircle2,
+    Clock,
+    Eye,
+    FileText,
+    MoreHorizontal,
+    Pencil,
+    Search,
+    Trash2
+} from "lucide-react";
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Swal from "sweetalert2";
-
 
 function ReportHistory() {
     const [reports, setReports] = useState([]);
     const [groupedReports, setGroupedReports] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [expandedPolicies, setExpandedPolicies] = useState({});
+    const [searchTerm, setSearchTerm] = useState("");
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -23,7 +47,6 @@ function ReportHistory() {
                 const res = await api.get('/reports/my-reports', {
                     headers: { Authorization: `Bearer ${token}` },
                 });
-                console.log('Fetched reports:', res.data);
                 setReports(res.data);
                 groupReportsByPolicy(res.data);
             } catch (error) {
@@ -36,346 +59,278 @@ function ReportHistory() {
         fetchMyReports();
     }, []);
 
-    const groupReportsByPolicy = (reportsData) => {
-        // Group reports by policy
-        const grouped = {};
+    // Re-group bila search berubah
+    useEffect(() => {
+        if (reports.length > 0) {
+            const filtered = reports.filter(r =>
+                r.initiative?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                r.initiative?.policyName?.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+            groupReportsByPolicy(filtered);
+        }
+    }, [searchTerm, reports]);
 
+    const groupReportsByPolicy = (reportsData) => {
+        const grouped = {};
         reportsData.forEach(report => {
-            // Get policy info from initiative
             const policyName = report.initiative?.policyName || 'Unassigned Policy';
             const policyId = report.initiative?.policyId || 'unassigned';
 
             if (!grouped[policyId]) {
                 grouped[policyId] = {
-                    policyId: policyId,
-                    policyName: policyName,
+                    policyId,
+                    policyName,
                     reports: []
                 };
             }
-
             grouped[policyId].reports.push(report);
         });
 
-        // Convert to array and sort by policy name
         const groupedArray = Object.values(grouped).sort((a, b) =>
             a.policyName.localeCompare(b.policyName)
         );
-
         setGroupedReports(groupedArray);
     };
 
-    const togglePolicy = (policyId) => {
-        setExpandedPolicies(prev => ({
-            ...prev,
-            [policyId]: !prev[policyId]
-        }));
-    };
-
-    const getStatusColor = (status) => {
-        switch (status) {
-            case 'Approved':
-                return 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200 border-green-200';
-            case 'Needs Revision':
-                return 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200 border-red-200';
-            case 'Pending Review':
-            default:
-                return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200 border-yellow-200';
-        }
-    };
-
-    const calculateProgress = (report) => {
-        if (!report.initiative?.kpi) return 0;
-        const { currentValue = 0, target } = report.initiative.kpi;
-        if (target === 0) return 0;
-        return Math.min(((currentValue / target) * 100), 100).toFixed(1);
-    };
-
-    const formatDate = (dateString) => {
-        if (!dateString) return 'N/A';
-        return new Date(dateString).toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric'
-        });
-    };
-
-    if (isLoading) {
-        return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600">Loading your reports...</p>
-                </div>
-            </div>
-        );
-    }
-
     const handleDeleteReport = async (reportId) => {
-        const token = localStorage.getItem("authToken");
-
         const confirm = await Swal.fire({
-            title: "Are you sure?",
-            text: "This report will be permanently deleted.",
+            title: "Adakah anda pasti?",
+            text: "Laporan ini akan dipadam secara kekal.",
             icon: "warning",
             showCancelButton: true,
             confirmButtonColor: "#d33",
-            cancelButtonColor: "#6c757d",
-            confirmButtonText: "Yes, delete it!"
+            cancelButtonText: "Batal",
+            confirmButtonText: "Ya, padam!"
         });
 
         if (confirm.isConfirmed) {
             try {
+                const token = localStorage.getItem("authToken");
                 await api.delete(`/reports/${reportId}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
-
-                Swal.fire("Deleted!", "The report has been removed.", "success");
-
-                // ✅ PEMBETULAN DI SINI:
-                // 1. Buat senarai baharu yang telah ditapis
-                const updatedReports = reports.filter(r => r._id !== reportId);
-
-                // 2. Kemaskini state utama
-                setReports(updatedReports);
-
-                // 3. ✅ PENTING: Kumpul semula (re-group) data untuk paparan UI
-                groupReportsByPolicy(updatedReports);
-
+                Swal.fire("Berjaya!", "Laporan telah dipadam.", "success");
+                setReports(prev => prev.filter(r => r._id !== reportId));
             } catch (error) {
-                console.error("Failed to delete report:", error);
-                Swal.fire("Error!", "Unable to delete the report.", "error");
+                Swal.fire("Ralat!", "Gagal memadam laporan.", "error");
             }
         }
     };
 
+    const StatusBadge = ({ status }) => {
+        const styles = {
+            "Approved": "bg-emerald-100 text-emerald-700 border-emerald-200",
+            "Needs Revision": "bg-red-100 text-red-700 border-red-200",
+            "Pending Review": "bg-amber-100 text-amber-700 border-amber-200",
+            "Draft": "bg-slate-100 text-slate-700 border-slate-200"
+        };
+        const icons = {
+            "Approved": <CheckCircle2 className="w-3 h-3 mr-1" />,
+            "Needs Revision": <AlertCircle className="w-3 h-3 mr-1" />,
+            "Pending Review": <Clock className="w-3 h-3 mr-1" />,
+            "Draft": <FileText className="w-3 h-3 mr-1" />
+        };
+
+        return (
+            <Badge variant="outline" className={`${styles[status] || styles["Draft"]} pl-2 pr-3 py-1 font-medium`}>
+                {icons[status] || icons["Draft"]} {status}
+            </Badge>
+        );
+    };
+
+    if (isLoading) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] animate-pulse">
+                <div className="h-12 w-12 bg-slate-200 rounded-full mb-4"></div>
+                <div className="h-4 w-48 bg-slate-200 rounded"></div>
+            </div>
+        );
+    }
 
     return (
-        <div>
-            <div className="flex justify-between items-center mb-4">
+        <div className="p-6 space-y-8 max-w-[1600px] mx-auto animate-in fade-in duration-500">
+
+            {/* --- HEADER --- */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold">Sejarah Laporan</h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        Jumlah Laporan: {reports.length}
-                    </p>
+                    <h1 className="text-3xl font-bold tracking-tight text-slate-900">Sejarah Laporan</h1>
+                    <p className="text-slate-500 mt-1">Urus dan pantau laporan kemajuan inisiatif anda.</p>
                 </div>
-                <Button onClick={() => navigate('/submit-report')}>
-                    <TrendingUp className="h-4 w-4 mr-2" />
-                    Hantar Laporan Baharu
-                </Button>
+
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                    <div className="relative flex-1 md:w-72">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                            placeholder="Cari laporan..."
+                            className="pl-9 bg-white"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    <Button onClick={() => navigate('/submit-report')} className="bg-blue-600 hover:bg-blue-700">
+                        <Activity className="h-4 w-4 mr-2" /> Hantar Laporan
+                    </Button>
+                </div>
             </div>
 
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Pending Review
-                        </CardTitle>
+            {/* --- SUMMARY CARDS --- */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="border-l-4 border-l-amber-500 shadow-sm">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-slate-500">Menunggu Semakan</CardTitle>
+                        <Clock className="h-4 w-4 text-amber-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-yellow-600">
-                            {reports.filter(r => r.status === 'Pending Review').length}
-                        </div>
+                        <div className="text-2xl font-bold">{reports.filter(r => r.status === 'Pending Review').length}</div>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Approved
-                        </CardTitle>
+                <Card className="border-l-4 border-l-emerald-500 shadow-sm">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-slate-500">Disahkan</CardTitle>
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-green-600">
-                            {reports.filter(r => r.status === 'Approved').length}
-                        </div>
+                        <div className="text-2xl font-bold">{reports.filter(r => r.status === 'Approved').length}</div>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Needs Revision
-                        </CardTitle>
+                <Card className="border-l-4 border-l-red-500 shadow-sm">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-slate-500">Perlu Pembetulan</CardTitle>
+                        <AlertCircle className="h-4 w-4 text-red-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-red-600">
-                            {reports.filter(r => r.status === 'Needs Revision').length}
-                        </div>
+                        <div className="text-2xl font-bold">{reports.filter(r => r.status === 'Needs Revision').length}</div>
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Policy Accordion with Reports */}
-            <div className="space-y-4">
-                {groupedReports.length > 0 ? (
-                    groupedReports.map(policyGroup => {
-                        const isExpanded = expandedPolicies[policyGroup.policyId];
-                        const reportCount = policyGroup.reports.length;
-
-                        return (
-                            <Card key={policyGroup.policyId} className="overflow-hidden">
-                                {/* Policy Header - Clickable */}
-                                <div
-                                    className="flex items-center justify-between p-4 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors bg-gradient-to-r from-blue-50 to-transparent dark:from-blue-900/20"
-                                    onClick={() => togglePolicy(policyGroup.policyId)}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        {isExpanded ? (
-                                            <ChevronDownIcon className="h-6 w-6 text-blue-600" />
-                                        ) : (
-                                            <ChevronRightIcon className="h-6 w-6 text-blue-400" />
-                                        )}
-                                        <div>
-                                            <h2 className="text-lg font-bold text-blue-900 dark:text-blue-100">
-                                                {policyGroup.policyName}
-                                            </h2>
-                                            <p className="text-sm text-muted-foreground">
-                                                {reportCount} {reportCount === 1 ? 'Report' : 'Reports'}
-                                            </p>
+            {/* --- CONTENT (ACCORDION) --- */}
+            {groupedReports.length === 0 ? (
+                <div className="text-center py-20 bg-slate-50 rounded-lg border border-dashed">
+                    <FileText className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                    <h3 className="text-lg font-medium text-slate-900">Tiada Laporan</h3>
+                    <p className="text-slate-500 mb-4">Anda belum menghantar sebarang laporan atau carian tidak dijumpai.</p>
+                    <Button variant="outline" onClick={() => navigate('/submit-report')}>Hantar Laporan Sekarang</Button>
+                </div>
+            ) : (
+                <Accordion type="multiple" className="space-y-4">
+                    {groupedReports.map((group, index) => (
+                        <AccordionItem key={group.policyId} value={group.policyId} className="border rounded-lg bg-white shadow-sm px-4">
+                            <AccordionTrigger className="hover:no-underline py-4">
+                                <div className="flex items-center gap-3 text-left w-full">
+                                    <div className="flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-blue-600 font-bold text-xs">
+                                        {index + 1}
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="font-semibold text-lg text-slate-800">{group.policyName}</div>
+                                        <div className="text-xs text-slate-500 font-normal">
+                                            {group.reports.length} Laporan Berkaitan
                                         </div>
                                     </div>
-                                    <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
-                                        Policy
-                                    </Badge>
                                 </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="pb-4 pt-2">
+                                <div className="overflow-x-auto border rounded-lg">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-slate-50 border-b text-slate-500">
+                                            <tr>
+                                                <th className="px-4 py-3 text-left font-medium w-1/3">Inisiatif</th>
+                                                <th className="px-4 py-3 text-left font-medium">Tempoh</th>
+                                                <th className="px-4 py-3 text-left font-medium">Kemajuan KPI</th>
+                                                <th className="px-4 py-3 text-left font-medium">Status</th>
+                                                <th className="px-4 py-3 text-left font-medium">Tarikh</th>
+                                                <th className="px-4 py-3 text-right font-medium">Tindakan</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-200 bg-white">
+                                            {group.reports.map((report) => {
+                                                const kpiValue = report.kpiSnapshot !== undefined ? report.kpiSnapshot : (report.initiative?.kpi?.currentValue || 0);
+                                                const target = report.initiative?.kpi?.target || 0;
+                                                const percent = target > 0 ? (kpiValue / target) * 100 : 0;
 
-                                {/* Reports Table - Only show when expanded */}
-                                {isExpanded && (
-                                    <CardContent className="p-0 animate-enter">
-                                        <div className="overflow-x-auto">
-                                            <Table>
-                                                <TableHeader>
-                                                    <TableRow>
-                                                        <TableHead className="w-[200px]">Inisiatif</TableHead>
-                                                        <TableHead>Tempoh</TableHead>
-                                                        <TableHead>Kemajuan KPI</TableHead>
-                                                        <TableHead>Semasa / Sasaran</TableHead>
-                                                        <TableHead>Tarikh Hantar</TableHead>
-                                                        <TableHead>Status</TableHead>
-                                                        <TableHead className="text-right">Tindakan</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {policyGroup.reports.map(report => {
-                                                        // Kira progress berdasarkan snapshot jika ada
-                                                        const kpiValueToShow = report.kpiSnapshot !== undefined
-                                                            ? report.kpiSnapshot
-                                                            : (report.initiative?.kpi?.currentValue || 0);
+                                                return (
+                                                    <tr key={report._id} className="hover:bg-slate-50 transition-colors">
+                                                        <td className="px-4 py-3 font-medium text-slate-700">
+                                                            {report.initiative?.name || "N/A"}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-slate-600">
+                                                            <Badge variant="secondary" className="font-normal bg-slate-100 text-slate-600 border-slate-200">
+                                                                {report.period}
+                                                            </Badge>
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <div className="flex flex-col gap-1 w-32">
+                                                                <div className="flex justify-between text-xs text-slate-500">
+                                                                    <span>{kpiValue} / {target}</span>
+                                                                    <span>{percent.toFixed(0)}%</span>
+                                                                </div>
+                                                                <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                                                    <div
+                                                                        className={`h-full rounded-full ${percent >= 100 ? 'bg-emerald-500' : 'bg-blue-500'}`}
+                                                                        style={{ width: `${Math.min(percent, 100)}%` }}
+                                                                    ></div>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <StatusBadge status={report.status} />
+                                                        </td>
+                                                        <td className="px-4 py-3 text-slate-500 text-xs">
+                                                            {new Date(report.createdAt).toLocaleDateString("ms-MY")}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right">
+                                                            <div className="flex items-center justify-end gap-1">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-8 w-8 text-slate-400 hover:text-blue-600"
+                                                                    onClick={() => navigate(`/report/${report._id}`)}
+                                                                    title="Lihat"
+                                                                >
+                                                                    <Eye className="h-4 w-4" />
+                                                                </Button>
 
-                                                        const target = report.initiative?.kpi?.target || 0;
-
-                                                        // Kira progress semula menggunakan nilai snapshot supaya bar progress juga tepat mengikut sejarah
-                                                        const progress = target > 0 ? Math.min(((kpiValueToShow / target) * 100), 100).toFixed(1) : 0;
-                                                        const unit = report.initiative?.kpi?.unit || '';
-
-                                                        return (
-                                                            <TableRow key={report._id}>
-                                                                <TableCell className="font-medium">
-                                                                    {report.initiative?.name || 'N/A'}
-                                                                </TableCell>
-                                                                <TableCell>
-                                                                    <Badge variant="outline">
-                                                                        {report.period}
-                                                                    </Badge>
-                                                                </TableCell>
-                                                                <TableCell>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <div className="flex-1 min-w-[80px]">
-                                                                            <div className="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
-                                                                                <div
-                                                                                    className="bg-blue-600 h-2 rounded-full transition-all"
-                                                                                    style={{ width: `${progress}%` }}
-                                                                                ></div>
-                                                                            </div>
-                                                                        </div>
-                                                                        <span className="text-xs font-medium text-muted-foreground min-w-[45px]">
-                                                                            {progress}%
-                                                                        </span>
-                                                                    </div>
-                                                                </TableCell>
-                                                                <TableCell className="text-sm">
-                                                                    <span className="font-semibold">{kpiValueToShow}</span>
-                                                                    <span className="text-muted-foreground"> / {target}</span>
-                                                                    <span className="text-xs text-muted-foreground ml-1">
-                                                                        {unit}
-                                                                    </span>
-                                                                </TableCell>
-                                                                <TableCell className="text-sm text-muted-foreground">
-                                                                    {formatDate(report.createdAt)}
-                                                                </TableCell>
-                                                                <TableCell>
-                                                                    <Badge
-                                                                        variant="outline"
-                                                                        className={getStatusColor(report.status)}
-                                                                    >
-                                                                        {report.status}
-                                                                    </Badge>
-                                                                </TableCell>
-                                                                <TableCell className="text-right">
-                                                                    <div className="flex justify-end gap-2">
-                                                                        <Button
-                                                                            variant="outline"
-                                                                            size="sm"
-                                                                            onClick={() => navigate(`/report/${report._id}`)}
-                                                                        >
-                                                                            <Eye className="h-4 w-4 mr-1" />
-                                                                            Lihat
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-600">
+                                                                            <MoreHorizontal className="h-4 w-4" />
                                                                         </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent align="end">
+                                                                        <DropdownMenuLabel>Pilihan</DropdownMenuLabel>
+                                                                        <DropdownMenuSeparator />
 
-
-
+                                                                        {/* Edit hanya jika perlu revision */}
                                                                         {report.status === 'Needs Revision' && (
-                                                                            <Button
-                                                                                variant="default"
-                                                                                size="sm"
-                                                                                onClick={() => navigate(`/edit-report/${report._id}`)}
-                                                                            >
-                                                                                <Pencil className="h-4 w-4 mr-1" />
-                                                                                Edit
-                                                                            </Button>
+                                                                            <DropdownMenuItem onClick={() => navigate(`/edit-report/${report._id}`)}>
+                                                                                <Pencil className="mr-2 h-4 w-4" /> Kemaskini
+                                                                            </DropdownMenuItem>
                                                                         )}
 
-                                                                        <Button
-                                                                            variant="destructive"
-                                                                            size="sm"
-                                                                            disabled={report.status === 'Approved'}
-                                                                            onClick={() => handleDeleteReport(report._id)}
-                                                                        >
-                                                                            <Trash2 className="h-4 w-4 mr-1" />
-                                                                            Delete
-                                                                        </Button>
-                                                                    </div>
-                                                                </TableCell>
-
-                                                            </TableRow>
-                                                        );
-                                                    })}
-                                                </TableBody>
-                                            </Table>
-                                        </div>
-                                    </CardContent>
-                                )}
-                            </Card>
-                        );
-                    })
-                ) : (
-                    <Card>
-                        <CardContent className="py-16">
-                            <div className="flex flex-col items-center justify-center text-muted-foreground">
-                                <TrendingUp className="h-16 w-16 mb-4 opacity-20" />
-                                <p className="text-lg font-medium mb-2">No reports yet</p>
-                                <p className="text-sm mb-4">Submit your first progress report to get started.</p>
-                                <Button
-                                    variant="outline"
-                                    onClick={() => navigate('/submit-report')}
-                                >
-                                    <TrendingUp className="h-4 w-4 mr-2" />
-                                    Submit Report
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
-            </div>
+                                                                        {/* Delete hanya jika belum Approved */}
+                                                                        {report.status !== 'Approved' && (
+                                                                            <DropdownMenuItem
+                                                                                onClick={() => handleDeleteReport(report._id)}
+                                                                                className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                                                                            >
+                                                                                <Trash2 className="mr-2 h-4 w-4" /> Padam
+                                                                            </DropdownMenuItem>
+                                                                        )}
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                    ))}
+                </Accordion>
+            )}
         </div>
     );
 }
