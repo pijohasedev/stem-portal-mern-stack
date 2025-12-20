@@ -95,11 +95,13 @@ function Sidebar({ isOpen, onLogout, userRole, user }) {
     const isReporter = isPPD || isUser || isJPN;
     const isMonitor = isAdmin || isJPN;
 
-    // Logic Enrolmen
-    const showEnrollmentVerify = isPPD || isAdmin;
+    // --- 🔥 UPDATE LOGIC DI SINI ---
+    // Tambah 'role === negeri' supaya JPN boleh nampak menu Semakan PPD
+    const showEnrollmentVerify = isPPD || isAdmin || role === 'negeri';
+
     const showEnrollmentDashboard = (role === 'negeri') || isAdmin;
     const showEnrollmentImport = isAdmin;
-    const showEnrollmentExport = isAdmin;
+    const showEnrollmentExport = isAdmin || role === 'negeri';
     const showSessionSettings = isAdmin;
     const showKPMDashboard = isAdmin;
 
@@ -172,7 +174,7 @@ function Sidebar({ isOpen, onLogout, userRole, user }) {
                         )}
 
                         {showEnrollmentDashboard && (
-                            <SidebarLink to="/enrollment/jpn-dashboard" icon={FileSpreadsheet} isCollapsed={isCollapsed}>Dashboard Enrolmen</SidebarLink>
+                            <SidebarLink to="/enrollment/jpn-dashboard" icon={FileSpreadsheet} isCollapsed={isCollapsed}>Dashboard JPN</SidebarLink>
                         )}
 
                         {showKPMDashboard && (
@@ -184,7 +186,7 @@ function Sidebar({ isOpen, onLogout, userRole, user }) {
                         )}
 
                         {showEnrollmentExport && (
-                            <SidebarLink to="/enrollment/export" icon={Download} isCollapsed={isCollapsed}>Eksport Laporan</SidebarLink>
+                            <SidebarLink to="/enrollment/export" icon={Download} isCollapsed={isCollapsed}>Eksport Enrolmen</SidebarLink>
                         )}
 
                         {showSessionSettings && (

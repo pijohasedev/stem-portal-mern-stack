@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 import { Check, ChevronsUpDown, Download, FileSpreadsheet } from "lucide-react";
 import { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
-import * as XLSX from 'xlsx';
+// ❌ import * as XLSX from 'xlsx'; // TIDAK DIPERLUKAN LAGI
 
 function AdminEnrollmentExport() {
     const [year, setYear] = useState("2025");
@@ -28,12 +28,12 @@ function AdminEnrollmentExport() {
 
     const [scope, setScope] = useState("ALL"); // ALL, STATE, PPD
     const [selectedId, setSelectedId] = useState(""); // ID Negeri atau PPD
-    const [openPpd, setOpenPpd] = useState(false); // State untuk buka/tutup dropdown PPD
+    const [openPpd, setOpenPpd] = useState(false);
 
     const [locations, setLocations] = useState({ states: [], ppds: [] });
     const [loading, setLoading] = useState(false);
 
-    // 1. Load Senarai Negeri & PPD untuk Dropdown
+    // 1. Load Senarai Negeri & PPD
     useEffect(() => {
         api.get('/enrollment/options/locations', {
             headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
@@ -42,68 +42,57 @@ function AdminEnrollmentExport() {
         }).catch(err => console.error(err));
     }, []);
 
-    // 2. Fungsi Generate Excel
+    // 2. Fungsi Generate Excel (Backend Generates, Frontend Downloads)
     const handleDownload = async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem('authToken');
 
-            const res = await api.get('/enrollment/export', {
-                params: { year, month, scope, id: selectedId },
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            // Susun parameter ikut kehendak Backend
+            // Backend nak: ?year=...&month=...&state=... ATAU &ppd=...
+            const params = { year, month };
 
-            const rawData = res.data;
-
-            if (rawData.length === 0) {
-                Swal.fire("Tiada Data", "Tiada rekod dijumpai untuk kriteria ini.", "info");
-                setLoading(false);
-                return;
+            if (scope === 'STATE' && selectedId) {
+                params.state = selectedId;
+            } else if (scope === 'PPD' && selectedId) {
+                params.ppd = selectedId;
             }
 
-            // Format Data untuk Excel
-            const excelData = rawData.map(item => {
-                const d = item.verifiedData?.totalStudents > 0 ? item.verifiedData : item.systemData;
-                const isVerified = item.status === 'Verified by PPD' || item.status === 'Approved by JPN';
-
-                return {
-                    "Negeri": item.state?.name || "-",
-                    "PPD": item.ppd?.name || "-",
-                    "Kod Sekolah": item.schoolCode,
-                    "Nama Sekolah": item.schoolName,
-                    "Jenis": item.schoolType,
-                    "STEM A": d.stemA,
-                    "STEM B": d.stemB,
-                    "STEM C1": d.stemC1,
-                    "STEM C2": d.stemC2,
-                    "Kategori E": d.categoryE,
-                    "Kategori F": d.categoryF,
-                    "Bukan STEM": d.nonStem,
-                    "Jumlah Murid": d.totalStudents,
-                    "% Enrolmen": (d.stemPercentage || 0).toFixed(2) + '%',
-                    "Status Pengesahan": item.status,
-                    "Sumber Data": isVerified ? "Disahkan PPD" : "Data Asal KPM"
-                };
+            // Panggil API dengan Blob
+            const res = await api.get('/enrollment/export', {
+                params,
+                headers: { Authorization: `Bearer ${token}` },
+                responseType: 'blob' // ✅ WAJIB: Terima fail binary
             });
 
-            const ws = XLSX.utils.json_to_sheet(excelData);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Enrolmen STEM");
-            const fileName = `Laporan_Enrolmen_${year}_Bulan${month}_${scope}.xlsx`;
-            XLSX.writeFile(wb, fileName);
+            // Proses Download
+            const url = window.URL.createObjectURL(new Blob([res.data]));
+            const link = document.createElement('a');
+            link.href = url;
+
+            // Nama Fail
+            const scopeName = scope === 'ALL' ? 'Nasional' : (scope === 'STATE' ? 'Negeri' : 'PPD');
+            const fileName = `Laporan_Enrolmen_${year}_${month}_${scopeName}.xlsx`;
+
+            link.setAttribute('download', fileName);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
 
             Swal.fire("Selesai", "Laporan berjaya dimuat turun.", "success");
 
         } catch (error) {
-            console.error(error);
-            Swal.fire("Ralat", "Gagal memuat turun data.", "error");
+            console.error("Export error:", error);
+            // Jika Blob error, kadang susah nak baca message JSON, so guna generic message
+            Swal.fire("Ralat", "Gagal memuat turun data atau tiada rekod.", "error");
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="p-6 space-y-6 max-w-5xl mx-auto">
+        <div className="p-6 space-y-6 max-w-5xl mx-auto animate-in fade-in duration-500">
             <div className="flex items-center gap-4">
                 <div className="p-3 bg-green-100 rounded-full text-green-700">
                     <FileSpreadsheet className="h-8 w-8" />
@@ -135,9 +124,12 @@ function AdminEnrollmentExport() {
                             <Select value={month} onValueChange={setMonth}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="3">Mac</SelectItem>
-                                    <SelectItem value="6">Jun</SelectItem>
-                                    <SelectItem value="10">Oktober</SelectItem>
+                                    <SelectItem value="ALL">Keseluruhan Tahun</SelectItem>
+                                    {[...Array(12)].map((_, i) => (
+                                        <SelectItem key={i + 1} value={(i + 1).toString()}>
+                                            {new Date(0, i).toLocaleString('ms-MY', { month: 'long' })}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -170,7 +162,7 @@ function AdminEnrollmentExport() {
                             </div>
                         )}
 
-                        {/* COMBOBOX CARIAN UNTUK PPD (MODIFIED) */}
+                        {/* COMBOBOX CARIAN UNTUK PPD */}
                         {scope === 'PPD' && (
                             <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
                                 <Label>Pilih PPD</Label>

@@ -183,7 +183,7 @@ function LoginPage({ onLoginSuccess }) {
                                 {/* Input Password */}
                                 <div className="grid gap-2">
                                     <div className="flex items-center justify-between">
-                                        <Label htmlFor="password" classname="text-slate-600">Kata Laluan</Label>
+                                        <Label htmlFor="password" className="text-slate-600">Kata Laluan</Label>
                                         {/*<a href="#" className="text-xs font-medium text-blue-600 hover:text-blue-500">
                                             Lupa kata laluan?
                                         </a>*/}
