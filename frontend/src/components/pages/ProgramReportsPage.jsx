@@ -12,7 +12,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Download, Eye, FileSpreadsheet, MapPin, Pencil, PlusCircle, Target, Trash2 } from "lucide-react";
 import { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
-import * as XLSX from 'xlsx';
 
 // --- IMPORTS PETA ---
 import L from 'leaflet';
@@ -307,9 +306,9 @@ function ProgramReportsPage() {
 
     // ✅ EXPORT FUNCTION
     const handleExport = async () => {
+        // 1. Validasi Tarikh (Kekal sama)
         if (!exportDates.start || !exportDates.end) {
             setIsExportModalOpen(false);
-
             setTimeout(() => {
                 Swal.fire({
                     title: "Ralat",
@@ -328,65 +327,34 @@ function ProgramReportsPage() {
 
         try {
             const token = localStorage.getItem('authToken');
-            const res = await api.get('/programs/export', {
+
+            // 2. Panggil API dengan responseType 'blob' (PENTING!)
+            // Kita beritahu axios kita nak terima FILE, bukan JSON text.
+            const response = await api.get('/programs/export', {
                 params: { startDate: exportDates.start, endDate: exportDates.end },
-                headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${token}` },
+                responseType: 'blob' // <--- WAJIB ADA INI
             });
 
-            const data = res.data;
+            // 3. Proses Download Fail
+            // Tukar data binary kepada URL yang boleh didownload browser
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
 
-            if (data.length === 0) {
-                setExporting(false);
-                setIsExportModalOpen(false);
+            // Tetapkan nama fail
+            const fileName = `Laporan_Aktiviti_${exportDates.start}_${exportDates.end}.xlsx`;
+            link.setAttribute('download', fileName);
 
-                setTimeout(() => {
-                    Swal.fire({
-                        title: "Tiada Data",
-                        text: "Tiada aktiviti dijumpai dalam julat tarikh ini.",
-                        icon: "info",
-                        confirmButtonText: "OK",
-                        confirmButtonColor: "#2563eb"
-                    }).then(() => {
-                        setIsExportModalOpen(true);
-                    });
-                }, 100);
-                return;
-            }
+            // Trigger klik pada link tersebut
+            document.body.appendChild(link);
+            link.click();
 
-            const excelRows = data.map((p, i) => {
-                const targetStr = p.targetGroups.map(t => `${t.group} (${t.count})`).join(", ");
-                const terasStr = p.teras
-                    ? `${p.teras.code ? p.teras.code + ': ' : ''}${p.teras.name}`
-                    : "-";
+            // Bersihkan memory
+            link.remove();
+            window.URL.revokeObjectURL(url);
 
-                const strategyStr = p.strategy
-                    ? `${p.strategy.code ? p.strategy.code + ': ' : ''}${p.strategy.name}`
-                    : "-";
-
-                return {
-                    "Bil": i + 1,
-                    "Teras": terasStr,
-                    "Strategi": strategyStr,
-                    "Tajuk Program": p.title,
-                    "Peringkat": p.programLevel,
-                    "Penganjur": p.organizerName || "-",
-                    "Tarikh Mula": new Date(p.dateStart).toLocaleDateString('en-GB'),
-                    "Tarikh Tamat": p.dateEnd ? new Date(p.dateEnd).toLocaleDateString('en-GB') : "-",
-                    "Tempat": p.venue || "-",
-                    "Latitud": p.location?.lat || "",
-                    "Longitud": p.location?.lng || "",
-                    "Google Maps": p.location?.lat ? `http://maps.google.com/?q=${p.location.lat},${p.location.lng}` : "",
-                    "Perincian Sasaran": targetStr,
-                    "Jumlah Peserta": p.participantCount,
-                    "Naratif": p.description || "-"
-                };
-            });
-
-            const ws = XLSX.utils.json_to_sheet(excelRows);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Aktiviti STEM");
-            XLSX.writeFile(wb, `Laporan_Aktiviti_${exportDates.start}_${exportDates.end}.xlsx`);
-
+            // 4. Update State & UI (Kekal sama)
             setIsExportModalOpen(false);
             setExporting(false);
             setExportDates({ start: "", end: "" });
@@ -402,10 +370,11 @@ function ProgramReportsPage() {
             }, 100);
 
         } catch (error) {
-            console.error(error);
+            console.error("Export Error:", error);
             setExporting(false);
             setIsExportModalOpen(false);
 
+            // Papar Error
             setTimeout(() => {
                 Swal.fire({
                     title: "Ralat",

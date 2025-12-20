@@ -7,6 +7,7 @@ const Initiative = require('../models/initiative.model');
 const auth = require('../middleware/auth');
 const adminAuth = require('../middleware/adminAuth');
 const ActivityLog = require('../models/ActivityLog'); // Pastikan model ini wujud
+const logActivity = require('../utils/logger');
 
 // --- POST /api/users/register ---
 // Creates a new user. This is a public route.
@@ -59,7 +60,8 @@ router.post('/login', async (req, res) => {
         // 2. Compare passwords
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
-            return res.status(400).json({ message: 'Invalid credentials' });
+            await logActivity(user._id, 'LOGIN_FAIL', `Cubaan log masuk gagal (Kata laluan salah).`, req);
+            return res.status(400).json({ message: "Emel atau kata laluan salah." });
         }
 
         // ✅ 1. Update Last Login User
@@ -142,6 +144,9 @@ router.post('/change-password', auth, async (req, res) => {
             password: hashedPassword,
             mustChangePassword: false
         });
+
+        // ✅ B. TRACK CHANGE_PASSWORD
+        await logActivity(req.user.id, 'CHANGE_PASSWORD', 'Pengguna telah menukar kata laluan.', req);
 
         res.json({ message: "Kata laluan berjaya ditukar. Sila log masuk semula." });
     } catch (err) {

@@ -9,6 +9,7 @@ const Teras = require('../models/teras.model');
 const Policy = require('../models/policy.model');
 const excel = require('exceljs');
 const User = require('../models/user.model');
+const logActivity = require('../utils/logger');
 
 // POST /api/reports - Create a new report
 // POST /api/reports - Cipta laporan baharu
@@ -103,6 +104,14 @@ router.post('/', auth, async (req, res) => {
         // Populate data untuk dihantar balik ke frontend
         await newReport.populate('owner', 'firstName lastName email');
         await newReport.populate('initiative', 'name kpi status');
+
+        // ✅ C. TRACK SUBMIT_INITIATIVEREPORT
+        await logActivity(
+            req.user.id,
+            'SUBMIT_INITIATIVEREPORT',
+            `Menghantar laporan inisiatif baharu: ${req.body.namaProgram || 'Tanpa Tajuk'}`,
+            req
+        );
 
         res.status(201).json({
             message: 'Report submitted successfully.',
@@ -402,6 +411,17 @@ router.patch('/:id/status', auth, async (req, res) => {
 
         await report.save();
 
+        // ✅ D. TRACK SUBMIT_REPORT (PPD Sahkan / JPN Luluskan)
+        let actionDescription = `Mengemaskini status laporan ID: ${req.params.id}`;
+
+        if (status === 'Verified') {
+            actionDescription = `PPD mengesahkan laporan ID: ${req.params.id}`;
+        } else if (status === 'Approved') {
+            actionDescription = `JPN/Admin meluluskan laporan ID: ${req.params.id}`;
+        } else if (status === 'Needs Revision') {
+            actionDescription = `Mengembalikan laporan ID: ${req.params.id} untuk semakan.`;
+        }
+
         res.json({ message: 'Report updated successfully', report });
     } catch (error) {
         console.error('Error updating report status:', error);
@@ -611,14 +631,32 @@ router.get('/by-initiative/:initiativeId', auth, async (req, res) => {
     }
 });
 
-// GET /api/reports/download/:policyId - Menjana dan memuat turun laporan Excel
-router.get('/download/:policyId', [auth, adminAuth], async (req, res) => {
+// ✅ UPDATE: GET /api/reports/download/:policyId
+// Fungsi Export Excel (Admin: Semua, JPN: Negeri Sendiri)
+router.get('/download/:policyId', auth, async (req, res) => { // ❌ Buang 'adminAuth'
     try {
         const policyId = req.params.policyId;
+        const user = req.user;
 
-        // 1. Dapatkan semua data hierarki
+        // 1. Kebenaran Akses (Admin & Negeri dibenarkan)
+        if (user.role !== 'Admin' && user.role !== 'Negeri' && user.role !== 'Bahagian') {
+            return res.status(403).json({ message: "Anda tidak mempunyai kebenaran untuk eksport data." });
+        }
+
+        // 2. Dapatkan Info Negeri Pengguna (Jika JPN)
+        let filterStateName = null;
+        if (user.role === 'Negeri') {
+            const userDetail = await User.findById(user.id).populate('state', 'name');
+            if (!userDetail || !userDetail.state) {
+                return res.status(400).json({ message: "Akaun JPN anda tiada rekod Negeri yang sah." });
+            }
+            filterStateName = userDetail.state.name;
+            console.log(`📥 JPN ${filterStateName} sedang eksport data...`);
+        }
+
+        // 3. Dapatkan Struktur Data (Polisi -> Inisiatif)
         const policy = await Policy.findById(policyId).lean();
-        if (!policy) return res.status(404).json({ message: "Policy not found." });
+        if (!policy) return res.status(404).json({ message: "Polisi tidak dijumpai." });
 
         const terasItems = await Teras.find({ policy: policyId }).lean();
         const terasIds = terasItems.map(t => t._id);
@@ -628,76 +666,98 @@ router.get('/download/:policyId', [auth, adminAuth], async (req, res) => {
 
         const initiatives = await Initiative.find({ strategy: { $in: strategyIds } }).lean();
 
-        // 2. Cipta Workbook Excel
+        // 4. Setup Excel Workbook
         const workbook = new excel.Workbook();
-        const worksheet = workbook.addWorksheet(policy.name.substring(0, 30)); // Hadkan nama tab
+        const sheetName = filterStateName ? `Laporan ${filterStateName}` : "Laporan Nasional";
+        const worksheet = workbook.addWorksheet(sheetName.substring(0, 30));
 
-        // 3. Tentukan Kolum
+        // Header Kolum
         worksheet.columns = [
-            { header: 'Polisi', key: 'policy', width: 30 },
-            { header: 'Teras', key: 'teras', width: 30 },
-            { header: 'Strategi', key: 'strategy', width: 30 },
+            { header: 'Teras', key: 'teras', width: 25 },
+            { header: 'Strategi', key: 'strategy', width: 25 },
             { header: 'Inisiatif', key: 'initiative', width: 40 },
-            { header: 'Status', key: 'status', width: 15 },
-            { header: 'KPI Target', key: 'target', width: 15 },
-            { header: 'KPI Current', key: 'current', width: 15 },
-            { header: 'Unit KPI', key: 'unit', width: 15 },
-            { header: 'Tarikh Laporan Terkini', key: 'reportDate', width: 20 },
-            { header: 'Laporan Terkini', key: 'report', width: 50 },
+            { header: 'Sasaran (Target)', key: 'target', width: 15 },
+            { header: 'Pencapaian (Current)', key: 'current', width: 15 }, // Dinamik ikut negeri
+            { header: 'Unit', key: 'unit', width: 10 },
+            { header: 'Status Terkini', key: 'status', width: 15 },
+            { header: 'Tarikh Laporan', key: 'reportDate', width: 15 },
+            { header: 'Ringkasan Laporan', key: 'report', width: 50 },
         ];
-
-        // Jadikan header tebal (bold)
         worksheet.getRow(1).font = { bold: true };
 
-        // 4. Proses dan tambah data baris demi baris
+        // 5. Loop Data & Tapis Mengikut Role
         for (const teras of terasItems) {
             const terasStrategies = strategies.filter(s => s.teras.toString() === teras._id.toString());
 
             for (const strategy of terasStrategies) {
                 const strategyInitiatives = initiatives.filter(i => i.strategy.toString() === strategy._id.toString());
 
-                if (strategyInitiatives.length === 0) {
-                    // Tambah baris walaupun tiada inisiatif
+                for (const initiative of strategyInitiatives) {
+
+                    // 🔥 LOGIK PENAPISAN PENTING DI SINI 🔥
+                    let reportQuery = { initiative: initiative._id };
+
+                    // Jika JPN, hanya cari laporan dari negeri mereka sahaja
+                    if (filterStateName) {
+                        reportQuery.submittedState = filterStateName;
+                    }
+
+                    // Cari laporan terkini berdasarkan filter tadi
+                    const latestReport = await Report.findOne(reportQuery).sort({ createdAt: -1 });
+
+                    // Tentukan Nilai untuk Dipaparkan
+                    let displayCurrent = 0;
+                    let displayStatus = 'Tiada Data';
+                    let displayDate = 'N/A';
+                    let displaySummary = 'Belum ada laporan';
+
+                    if (latestReport) {
+                        // Jika ada laporan, guna data laporan itu
+                        displayCurrent = latestReport.kpiSnapshot || 0;
+                        displayStatus = latestReport.status || 'Pending'; // Status laporan, bukan status inisiatif global
+                        displayDate = new Date(latestReport.createdAt).toLocaleDateString();
+                        displaySummary = latestReport.summary;
+                    } else {
+                        // Jika tiada laporan
+                        if (user.role === 'Admin') {
+                            // Admin nampak status "Master" (Nasional) jika tiada laporan spesifik
+                            displayCurrent = initiative.kpi.currentValue;
+                            displayStatus = initiative.status;
+                        } else {
+                            // JPN nampak 0 / Kosong sebab mereka belum lapor
+                            displayCurrent = 0;
+                            displayStatus = 'Belum Lapor';
+                        }
+                    }
+
+                    // Tambah baris ke Excel
                     worksheet.addRow({
-                        policy: policy.name,
                         teras: teras.name,
                         strategy: strategy.name,
-                        initiative: "N/A",
+                        initiative: initiative.name,
+                        target: initiative.kpi.target,
+                        current: displayCurrent, // ✅ Nilai yang betul untuk JPN
+                        unit: initiative.kpi.unit,
+                        status: displayStatus,
+                        reportDate: displayDate,
+                        report: displaySummary
                     });
-                } else {
-                    for (const initiative of strategyInitiatives) {
-                        // Cari laporan terkini untuk inisiatif ini
-                        const latestReport = await Report.findOne({ initiative: initiative._id }).sort({ createdAt: -1 });
-
-                        worksheet.addRow({
-                            policy: policy.name,
-                            teras: teras.name,
-                            strategy: strategy.name,
-                            initiative: initiative.name,
-                            status: initiative.status,
-                            target: initiative.kpi.target,
-                            current: initiative.kpi.currentValue || 0,
-                            unit: initiative.kpi.unit,
-                            reportDate: latestReport ? new Date(latestReport.createdAt).toLocaleDateString() : "N/A",
-                            report: latestReport ? latestReport.summary : "No report submitted."
-                        });
-                    }
                 }
             }
         }
 
-        // Tetapkan format tarikh untuk lajur 'reportDate' (Pilihan, tetapi cantik)
+        // Format Tarikh
         worksheet.getColumn('reportDate').numFmt = 'dd/mm/yyyy';
 
-        // 5. Hantar fail Excel kepada pengguna
-        res.setHeader(
-            'Content-Type',
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        );
-        res.setHeader(
-            'Content-Disposition',
-            `attachment; filename="Laporan_${policy.name}.xlsx"`
-        );
+        // ✅ REKOD LOG: EXPORT_DATA
+        let logDesc = `Eksport data polisi: ${policy.name}`;
+        if (filterStateName) logDesc += ` (${filterStateName})`;
+
+        await logActivity(req.user.id, 'EXPORT_DATA', logDesc, req);
+
+        // Hantar fail
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="Laporan_${filterStateName || 'Nasional'}.xlsx"`);
 
         await workbook.xlsx.write(res);
         res.end();
@@ -708,5 +768,33 @@ router.get('/download/:policyId', [auth, adminAuth], async (req, res) => {
     }
 });
 
+// GET /api/reports/download/:policyId (Fungsi Export JPN)
+router.get('/download/:policyId', [auth], async (req, res) => {
+    try {
+        const policyId = req.params.policyId;
+
+        // ... (Logik fetch data & generate Excel yang Tuan dah ada) ...
+        // ... const workbook = new excel.Workbook(); ...
+
+        // ✅ E. TRACK EXPORT_DATA
+        // Kita log dulu sebelum hantar fail
+        await logActivity(
+            req.user.id,
+            'EXPORT_DATA',
+            `JPN mengeksport data laporan (Policy ID: ${policyId})`,
+            req
+        );
+
+        // Hantar fail Excel
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="Laporan_Export.xlsx"`);
+        await workbook.xlsx.write(res);
+        res.end();
+
+    } catch (error) {
+        console.error("Export Error:", error);
+        res.status(500).json({ message: 'Gagal eksport data.' });
+    }
+});
 
 module.exports = router;
