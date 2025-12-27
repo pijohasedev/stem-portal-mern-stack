@@ -1,20 +1,16 @@
-# Guna imej Node.js sebagai asas
 FROM node:18-alpine
-
-# Set folder kerja dalam kontena
 WORKDIR /app
 
-# Salin fail package untuk install library
+# Salin fail package dari root
 COPY package*.json ./
 
-# Install library (dependencies)
+# Install dependencies (Node akan install library yang disenaraikan di root package.json)
 RUN npm install
 
-# Salin semua kod projek anda ke dalam kontena
+# Salin semua folder termasuk folder 'backend' dan 'frontend'
 COPY . .
 
-# Beritahu port mana aplikasi anda guna (biasanya 3000)
 EXPOSE 3000
 
-# Arahan untuk mulakan aplikasi
+# Jalankan server dari folder backend
 CMD ["npm", "start"]
