@@ -3,12 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 // Import Icon
-import { ArrowRight, Eye, EyeOff, LayoutDashboard, Loader2, Lock, Mail } from "lucide-react";
-import { useState } from 'react';
+import { ArrowRight, Eye, EyeOff, LayoutDashboard, Loader2, Lock, Mail, RefreshCw } from "lucide-react";
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 
-// ✅ PENTING: Terima prop 'onLoginSuccess' macam kod lama
 function LoginPage({ onLoginSuccess }) {
 
     const navigate = useNavigate();
@@ -21,6 +20,26 @@ function LoginPage({ onLoginSuccess }) {
     });
     const [showPassword, setShowPassword] = useState(false);
 
+    // --- CAPTCHA STATES ---
+    const [captchaCode, setCaptchaCode] = useState("");
+    const [captchaInput, setCaptchaInput] = useState("");
+
+    // 1. Generate Captcha bila page load
+    useEffect(() => {
+        generateCaptcha();
+    }, []);
+
+    // Fungsi Jana Kod Rawak
+    const generateCaptcha = () => {
+        const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        let result = "";
+        for (let i = 0; i < 5; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        setCaptchaCode(result);
+        setCaptchaInput("");
+    };
+
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
@@ -28,8 +47,21 @@ function LoginPage({ onLoginSuccess }) {
     const handleLogin = async (e) => {
         e.preventDefault();
 
+        // 1. Validasi Input Asas
         if (!formData.email || !formData.password) {
             Swal.fire("Ralat", "Sila masukkan emel dan kata laluan.", "warning");
+            return;
+        }
+
+        // 2. Validasi Captcha
+        if (captchaInput.toUpperCase() !== captchaCode) {
+            Swal.fire({
+                icon: "error",
+                title: "Kod Pengesahan Salah",
+                text: "Sila masukkan kod yang betul.",
+                confirmButtonColor: "#d33",
+            });
+            generateCaptcha(); // Tukar kod baru untuk keselamatan
             return;
         }
 
@@ -39,15 +71,12 @@ function LoginPage({ onLoginSuccess }) {
             const response = await api.post('/users/login', formData);
             const { token, user } = response.data;
 
-            // Simpan Data
             localStorage.setItem('authToken', token);
             localStorage.setItem('user', JSON.stringify(user));
 
-            // ✅ 1. Check 'Must Change Password' DULU (Logik asal)
+            // Check 'Must Change Password'
             if (user.mustChangePassword === true) {
-                // Simpan flag untuk protection
                 localStorage.setItem('mustChangePassword', 'true');
-
                 await Swal.fire({
                     title: 'Tukar Kata Laluan Diperlukan',
                     text: 'Demi keselamatan, sila tukar kata laluan sementara anda.',
@@ -55,15 +84,11 @@ function LoginPage({ onLoginSuccess }) {
                     confirmButtonText: 'OK, Tukar Sekarang',
                     confirmButtonColor: '#2563eb'
                 });
-
-                setLoading(false); // Stop loading
-                navigate('/change-password'); // Pergi page tukar password
-                return; // STOP di sini. Jangan panggil onLoginSuccess lagi.
+                setLoading(false);
+                navigate('/change-password');
+                return;
             }
 
-            // --- JIKA PASSWORD OK ---
-
-            // Notifikasi Berjaya
             const Toast = Swal.mixin({
                 toast: true,
                 position: "top-end",
@@ -76,12 +101,9 @@ function LoginPage({ onLoginSuccess }) {
                 title: `Selamat Kembali, ${user.firstName}!`
             });
 
-            // ✅ 2. PANGGIL PARENT COMPONENT (Ini yang kod lama buat)
-            // Ini akan update state di App.jsx supaya dia render Dashboard
             if (onLoginSuccess) {
                 onLoginSuccess(user);
             } else {
-                // Fallback kalau onLoginSuccess tak dipasang
                 navigate('/dashboard');
             }
 
@@ -93,6 +115,7 @@ function LoginPage({ onLoginSuccess }) {
                 text: error.response?.data?.message || 'Emel atau kata laluan tidak sah.',
                 confirmButtonColor: '#ef4444'
             });
+            generateCaptcha(); // Reset captcha jika gagal
         } finally {
             setLoading(false);
         }
@@ -122,7 +145,6 @@ function LoginPage({ onLoginSuccess }) {
                             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">
                                 Masa Depan.
                             </span>
-
                         </h1>
                         <p className="text-lg text-gray-200 max-w-md">
                             #STEMuntukSEMUA
@@ -142,7 +164,6 @@ function LoginPage({ onLoginSuccess }) {
             <div className="flex items-center justify-center p-6 bg-slate-50">
                 <div className="mx-auto flex w-full flex-col justify-center space-y-8 sm:w-[400px]">
 
-                    {/* Header Mobile */}
                     <div className="flex flex-col space-y-2 text-center lg:hidden">
                         <div className="bg-slate-900 p-3 rounded-xl shadow-sm border w-fit mx-auto">
                             <LayoutDashboard className="h-8 w-8 text-white" />
@@ -155,8 +176,7 @@ function LoginPage({ onLoginSuccess }) {
                     <div className="grid gap-6 bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
                         <div className="space-y-2 text-center mb-2">
                             <h2 className="text-xl font-semibold tracking-tight">Log Masuk Akaun</h2>
-                            <p className="text-sm text-slate-500">Masukkan e-mel anda untuk log masuk ke<br />STEM Portal</p>
-
+                            <p className="text-sm text-slate-500">Masukkan butiran anda untuk log masuk</p>
                         </div>
 
                         <form onSubmit={handleLogin}>
@@ -184,9 +204,6 @@ function LoginPage({ onLoginSuccess }) {
                                 <div className="grid gap-2">
                                     <div className="flex items-center justify-between">
                                         <Label htmlFor="password" className="text-slate-600">Kata Laluan</Label>
-                                        {/*<a href="#" className="text-xs font-medium text-blue-600 hover:text-blue-500">
-                                            Lupa kata laluan?
-                                        </a>*/}
                                     </div>
                                     <div className="relative group">
                                         <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
@@ -208,6 +225,49 @@ function LoginPage({ onLoginSuccess }) {
                                             {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                                         </button>
                                     </div>
+                                </div>
+
+                                {/* --- BAHAGIAN CAPTCHA (BARU) --- */}
+                                <div className="grid gap-2">
+                                    <Label htmlFor="captcha" className="text-slate-600">Kod Keselamatan</Label>
+                                    <div className="flex gap-3">
+                                        {/* Paparan Kod */}
+                                        <div
+                                            className="flex-1 h-11 bg-slate-100 border border-slate-200 rounded-md flex items-center justify-center relative select-none overflow-hidden"
+                                            title="Kod Pengesahan"
+                                        >
+                                            {/* Background Noise Effect */}
+                                            <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/noise.png')]"></div>
+                                            <span className="text-xl font-mono font-bold tracking-widest text-slate-700" style={{ letterSpacing: '0.3em' }}>
+                                                {captchaCode}
+                                            </span>
+                                        </div>
+
+                                        {/* Butang Refresh */}
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-11 w-11"
+                                            onClick={generateCaptcha}
+                                            title="Tukar Kod Lain"
+                                        >
+                                            <RefreshCw className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+
+                                    {/* Input User */}
+                                    <Input
+                                        id="captcha"
+                                        type="text"
+                                        placeholder="Masukkan kod di atas"
+                                        className="h-11 text-center font-medium tracking-wide uppercase bg-slate-50 border-slate-200 focus:bg-white"
+                                        value={captchaInput}
+                                        onChange={(e) => setCaptchaInput(e.target.value)}
+                                        maxLength={5}
+                                        required
+                                        disabled={loading}
+                                    />
                                 </div>
 
                                 {/* Butang Login */}
