@@ -21,8 +21,6 @@ const announcementRoutes = require('./routes/announcements');
 const logsRoutes = require('./routes/logs');
 const automationRoutes = require('./routes/automation');
 
-const path = require('path');
-
 
 // PENTING: Untuk localhost, dotenv.config() diperlukan untuk membaca .env
 // Di Render, pemboleh ubah persekitaran diinject secara automatik
@@ -91,12 +89,7 @@ app.use('/api/programs', require('./routes/programs'));
 app.use('/api/logs', logsRoutes);
 app.use('/api/automation', automationRoutes);
 
-app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
-
-app.get('/*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
-});
 
 
 // --- LETAK KOD INI DI SINI ---
