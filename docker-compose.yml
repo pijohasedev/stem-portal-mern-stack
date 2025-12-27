@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  # 1. DATABASE
+  db-server:
+    image: mongo:latest
+    container_name: mongo_db
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASS}
+    volumes:
+      - mongo_data:/data/db
+
+  # 2. APLIKASI (Backend + Frontend dari GitHub)
+  app-utama:
+    build: .
+    container_name: stem_app
+    restart: always
+    depends_on:
+      - db-server
+    ports:
+      - 3000:3000
+    environment:
+      MONGODB_URI: mongodb://${MONGO_USER}:${MONGO_PASS}@db-server:27017/stem_db?authSource=admin
+      PORT: 3000
+      # Tambahkan variable lain di bawah ini jika ada
+      # JWT_SECRET: ${JWT_SECRET}
+
+volumes:
+  mongo_data:
